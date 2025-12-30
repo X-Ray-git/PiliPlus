@@ -1,3 +1,5 @@
+import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
+import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
@@ -75,6 +77,90 @@ class VideoPopupMenu extends StatelessWidget {
                             bvid: videoItem.bvid,
                           );
                           SmartDialog.showToast(res['msg']);
+                        },
+                      ),
+                      _VideoCustomAction(
+                        '收藏',
+                        const Icon(MdiIcons.starOutline, size: 16),
+                        () async {
+                          if (!Accounts.main.isLogin) {
+                            SmartDialog.showToast('账号未登录');
+                            return;
+                          }
+                          
+                          SmartDialog.showLoading(msg: '加载中');
+                          
+                          // 获取视频ID
+                          final aid = videoItem.aid ?? videoItem.id;
+                          if (aid == null) {
+                            SmartDialog.dismiss();
+                            SmartDialog.showToast('无法获取视频ID');
+                            return;
+                          }
+                          
+                          // 获取用户收藏夹列表和当前视频已收藏的文件夹
+                          final foldersRes = await FavHttp.videoInFolder(
+                            mid: Accounts.main.mid,
+                            rid: aid,
+                            type: 2, // 视频类型
+                          );
+                          
+                          SmartDialog.dismiss();
+                          
+                          if (foldersRes is! Success) {
+                            SmartDialog.showToast('获取收藏夹失败');
+                            return;
+                          }
+                          
+                          final folders = foldersRes.response.list ?? [];
+                          if (folders.isEmpty) {
+                            SmartDialog.showToast('暂无收藏夹，请先创建');
+                            return;
+                          }
+                          
+                          // 已收藏的文件夹ID集合
+                          final initialSelected = folders
+                              .where((f) => f.favState == 1)
+                              .map((f) => f.id)
+                              .toSet();
+                          
+                          if (!context.mounted) return;
+                          
+                          // 显示收藏夹选择对话框
+                          final result = await FavSelectDialog.show(
+                            context,
+                            folders,
+                            initialSelected,
+                          );
+                          
+                          if (result == null) return;
+                          
+                          // 如果没有任何改变，直接返回
+                          if (result.add.isEmpty && result.del.isEmpty) {
+                            SmartDialog.showToast('未做任何修改');
+                            return;
+                          }
+                          
+                          SmartDialog.showLoading(msg: '处理中');
+                          
+                          // 调用收藏API
+                          final favRes = await FavHttp.favVideo(
+                            resources: '$aid:2',
+                            addIds: result.add.isNotEmpty
+                                ? result.add.join(',')
+                                : null,
+                            delIds: result.del.isNotEmpty
+                                ? result.del.join(',')
+                                : null,
+                          );
+                          
+                          SmartDialog.dismiss();
+                          
+                          if (favRes is Success) {
+                            SmartDialog.showToast('操作成功');
+                          } else {
+                            SmartDialog.showToast('操作失败：${favRes.error}');
+                          }
                         },
                       ),
                       if (videoItem.cid != null && Pref.enableAi)
