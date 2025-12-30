@@ -2,12 +2,16 @@ import 'dart:math';
 
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
+import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/dyn/ink_well.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/http/constants.dart';
+import 'package:PiliPlus/http/fav.dart';
+import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
+import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/save_panel/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -274,7 +278,7 @@ class AuthorPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              if (bvid != null)
+              if (bvid != null) ...[
                 ListTile(
                   onTap: () async {
                     Get.back();
@@ -292,6 +296,104 @@ class AuthorPanel extends StatelessWidget {
                     style: theme.textTheme.titleSmall,
                   ),
                 ),
+                ListTile(
+                  onTap: () async {
+                    Get.back();
+                    if (!Accounts.main.isLogin) {
+                      SmartDialog.showToast('账号未登录');
+                      return;
+                    }
+                    
+                    // 获取aid
+                    int? aid;
+                    try {
+                      final major = item.modules.moduleDynamic?.major;
+                      if (item.type == 'DYNAMIC_TYPE_AV') {
+                        aid = major?.archive?.aid;
+                      } else if (item.type == 'DYNAMIC_TYPE_UGC_SEASON') {
+                        aid = major?.ugcSeason?.aid;
+                      }
+                      
+                      if (aid == null && item.orig != null) {
+                        final origMajor = item.orig!.modules.moduleDynamic?.major;
+                        if (item.orig!.type == 'DYNAMIC_TYPE_AV') {
+                          aid = origMajor?.archive?.aid;
+                        } else if (item.orig!.type == 'DYNAMIC_TYPE_UGC_SEASON') {
+                          aid = origMajor?.ugcSeason?.aid;
+                        }
+                      }
+                    } catch (_) {}
+                    
+                    if (aid == null) {
+                      SmartDialog.showToast('无法获取视频ID');
+                      return;
+                    }
+                    
+                    SmartDialog.showLoading(msg: '加载中');
+                    
+                    final foldersRes = await FavHttp.videoInFolder(
+                      mid: Accounts.main.mid,
+                      rid: aid,
+                      type: 2,
+                    );
+                    
+                    SmartDialog.dismiss();
+                    
+                    if (!foldersRes.isSuccess) {
+                      SmartDialog.showToast('获取收藏夹失败');
+                      return;
+                    }
+                    
+                    final folders = foldersRes.data.list ?? [];
+                    if (folders.isEmpty) {
+                      SmartDialog.showToast('暂无收藏夹，请先创建');
+                      return;
+                    }
+                    
+                    final initialSelected = folders
+                        .where((f) => f.favState == 1)
+                        .map((f) => f.id)
+                        .toSet();
+                    
+                    if (!context.mounted) return;
+                    
+                    final result = await FavSelectDialog.show(
+                      context,
+                      folders,
+                      initialSelected,
+                    );
+                    
+                    if (result == null) return;
+                    
+                    if (result.add.isEmpty && result.del.isEmpty) {
+                      SmartDialog.showToast('未做任何修改');
+                      return;
+                    }
+                    
+                    SmartDialog.showLoading(msg: '处理中');
+                    
+                    final favRes = await FavHttp.favVideo(
+                      resources: '$aid:2',
+                      addIds: result.add.isNotEmpty ? result.add.join(',') : null,
+                      delIds: result.del.isNotEmpty ? result.del.join(',') : null,
+                    );
+                    
+                    SmartDialog.dismiss();
+                    
+                    if (favRes.isSuccess) {
+                      SmartDialog.showToast('操作成功');
+                    } else {
+                      SmartDialog.showToast('操作失败：$favRes');
+                    }
+                  },
+                  minLeadingWidth: 0,
+                  leading: const Icon(Icons.star_outline, size: 19),
+                  title: Text(
+                    '收藏',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ],
               ListTile(
                 onTap: () {
                   Get.back();

@@ -1,10 +1,12 @@
 import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
 import 'package:PiliPlus/http/fav.dart';
+import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/model_video.dart';
+import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
@@ -91,7 +93,11 @@ class VideoPopupMenu extends StatelessWidget {
                           SmartDialog.showLoading(msg: '加载中');
                           
                           // 获取视频ID
-                          final aid = videoItem.aid ?? videoItem.id;
+                          int? aid;
+                          if (videoItem is BaseVideoItemModel) {
+                            aid = (videoItem as BaseVideoItemModel).aid;
+                          }
+                          
                           if (aid == null) {
                             SmartDialog.dismiss();
                             SmartDialog.showToast('无法获取视频ID');
@@ -107,12 +113,12 @@ class VideoPopupMenu extends StatelessWidget {
                           
                           SmartDialog.dismiss();
                           
-                          if (foldersRes is! Success) {
+                          if (!foldersRes.isSuccess) {
                             SmartDialog.showToast('获取收藏夹失败');
                             return;
                           }
                           
-                          final folders = foldersRes.response.list ?? [];
+                          final folders = foldersRes.data.list ?? [];
                           if (folders.isEmpty) {
                             SmartDialog.showToast('暂无收藏夹，请先创建');
                             return;
@@ -156,10 +162,10 @@ class VideoPopupMenu extends StatelessWidget {
                           
                           SmartDialog.dismiss();
                           
-                          if (favRes is Success) {
+                          if (favRes.isSuccess) {
                             SmartDialog.showToast('操作成功');
                           } else {
-                            SmartDialog.showToast('操作失败：${favRes.error}');
+                            SmartDialog.showToast('操作失败：$favRes');
                           }
                         },
                       ),
