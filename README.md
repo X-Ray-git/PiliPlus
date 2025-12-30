@@ -250,3 +250,100 @@
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
  </picture>
 </a>
+
+---
+
+## Fork 说明
+
+本仓库为 [bggRGjQaUbCoE/PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) 的个人定制版本，包含以下扩展功能。
+
+### 新增功能
+
+#### 收藏夹桌面快捷方式（Android）
+
+允许用户为收藏夹创建桌面快捷方式，点击后直接打开对应收藏夹。
+
+**功能特性：**
+- 支持自定义快捷方式图标（可选择图片或使用默认应用图标）
+- 支持应用未运行状态下的启动和跳转
+- 基于现有 Deep Link 机制实现
+
+**使用方法：**
+1. 进入收藏夹详情页
+2. 点击右上角"···"菜单
+3. 选择"添加到桌面"
+4. 选择图标类型并授权
+
+**技术实现：**
+- Flutter: `lib/utils/shortcut_helper.dart`
+- Android Native: `android/app/src/main/kotlin/com/example/piliplus/ShortcutHelper.kt`
+- Deep Link: 使用 `bilibili://medialist/detail/{mediaId}` 协议
+
+### 仓库关系
+
+```
+upstream (原仓库)
+   └─> bggRGjQaUbCoE/PiliPlus
+
+origin (本仓库)
+   └─> X-Ray-git/PiliPlus
+       └─> feature/desktop-shortcuts (功能分支)
+```
+
+### 同步上游更新
+
+使用提供的脚本同步原仓库更新：
+
+```bash
+./sync_upstream.sh
+```
+
+或手动操作：
+
+```bash
+# 获取上游更新
+git fetch upstream
+
+# 合并到主分支
+git checkout main
+git merge upstream/main
+
+# 更新功能分支
+git checkout feature/desktop-shortcuts
+git rebase main
+```
+
+### 构建与安装
+
+**Android APK：**
+
+```bash
+# 构建 Release APK
+flutter build apk --release
+
+# APK 位置
+# build/app/outputs/flutter-apk/app-release.apk
+```
+
+**通过 USB 安装：**
+
+```bash
+# 检测设备
+flutter devices
+
+# 安装到设备
+flutter install --device-id=<DEVICE_ID>
+```
+
+### 版本说明
+
+- **上游版本：** 1.1.5+4442
+- **本版本：** 1.1.5+5002
+- **修改内容：** 新增收藏夹桌面快捷方式功能
+
+### 注意事项
+
+- 快捷方式功能仅支持 Android 平台
+- 需要 Android 8.0+ 系统
+- 覆盖安装需使用相同签名的 APK
+- 不同签名的 APK 安装需先卸载旧版本
