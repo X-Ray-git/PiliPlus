@@ -253,9 +253,10 @@
 
 ---
 
+
 ## Fork 说明
 
-本仓库是 [guimc233/PiliPlus](https://github.com/guimc233/PiliPlus) 的个人定制版本。
+本仓库 fork 自 [bggRGjQaUbCoE/PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)，包含个人定制功能。
 
 ### 增强功能
 
@@ -266,27 +267,44 @@
   - 动态页面"更多"菜单中添加收藏选项
   - 支持多选收藏夹、批量添加/取消收藏
 
-### 版本管理
+### 仓库结构
 
-- **主分支 (main)**：保持与上游同步
-- **功能分支 (feature/custom-enhancements)**：包含所有自定义功能
-- **同步策略**：定期从上游拉取更新，通过 rebase 合并到功能分支
+```
+upstream: bggRGjQaUbCoE/PiliPlus (原作者)
+    ↓ fetch & merge
+origin: X-Ray-git/PiliPlus (本仓库)
+    ├── main (与上游同步)
+    └── feature/custom-enhancements (包含所有自定义功能)
+```
+
+### 同步上游
+
+配置 upstream remote（首次）：
+```bash
+git remote add upstream https://github.com/bggRGjQaUbCoE/PiliPlus.git
+```
+
+同步更新：
+```bash
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
+
+git checkout feature/custom-enhancements
+git rebase main
+git push origin feature/custom-enhancements --force-with-lease
+```
 
 ### 构建安装
 
 ```bash
-# 克隆仓库
 git clone https://github.com/X-Ray-git/PiliPlus.git
 cd PiliPlus
-
-# 切换到功能分支
 git checkout feature/custom-enhancements
 
-# 安装依赖并构建
 flutter pub get
 flutter build apk --release
-
-# 安装到设备
 flutter install
 ```
 
@@ -296,4 +314,4 @@ flutter install
 
 ---
 
-**原项目地址**: [guimc233/PiliPlus](https://github.com/guimc233/PiliPlus)K 安装需先卸载旧版本
+**原项目**: [bggRGjQaUbCoE/PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)
