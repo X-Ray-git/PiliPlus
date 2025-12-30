@@ -291,6 +291,12 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       getPages: Routes.getPages,
       defaultTransition: Pref.pageTransition,
+      onReady: () {
+        // 应用完全启动后，处理待处理的初始链接（从快捷方式启动）
+        if (PlatformUtils.isMobile) {
+          PiliScheme.processPendingInitialLink();
+        }
+      },
       builder: FlutterSmartDialog.init(
         toastBuilder: (String msg) => CustomToast(msg: msg),
         loadingBuilder: (msg) => LoadingWidget(msg: msg),

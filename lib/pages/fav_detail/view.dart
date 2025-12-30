@@ -265,6 +265,10 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
                 ),
                 child: const Text('分享至动态'),
               ),
+            PopupMenuItem(
+              onTap: _favDetailController.createShortcut,
+              child: const Text('添加到桌面'),
+            ),
             if (isOwner) ...<PopupMenuEntry>[
               PopupMenuItem(
                 onTap: _favDetailController.cleanFav,

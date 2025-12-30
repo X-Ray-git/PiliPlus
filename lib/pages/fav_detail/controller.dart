@@ -13,12 +13,15 @@ import 'package:PiliPlus/pages/fav_sort/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/shortcut_helper.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show ValueChanged;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 mixin BaseFavController
     on
@@ -230,5 +233,57 @@ class FavDetailController
             }
           : null,
     );
+  }
+
+  /// 创建收藏夹桌面快捷方式
+  Future<void> createShortcut() async {
+    final folder = folderInfo.value;
+
+    // 询问用户是否自定义图标
+    String? customIconPath;
+    final useCustomIcon = await showDialog<bool>(
+      context: Get.context!,
+      builder: (context) => AlertDialog(
+        title: const Text('快捷方式图标'),
+        content: const Text('是否自定义快捷方式图标？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('使用默认图标'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('选择图片'),
+          ),
+        ],
+      ),
+    );
+
+    if (useCustomIcon == true) {
+      // 使用image_picker选择图片
+      final picker = ImagePicker();
+      final image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        customIconPath = image.path;
+      } else {
+        // 用户取消选择，直接返回
+        return;
+      }
+    } else if (useCustomIcon == null) {
+      // 用户关闭了对话框
+      return;
+    }
+
+    final success = await ShortcutHelper.createFavShortcut(
+      mediaId: folder.id.toString(),
+      title: folder.title,
+      customIconPath: customIconPath,
+    );
+
+    if (success) {
+      SmartDialog.showToast('快捷方式已添加到桌面');
+    } else {
+      SmartDialog.showToast('添加快捷方式失败');
+    }
   }
 }

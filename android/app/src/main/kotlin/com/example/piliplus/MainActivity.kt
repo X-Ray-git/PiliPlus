@@ -15,10 +15,15 @@ import androidx.core.net.toUri
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.system.exitProcess
 
 class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
+    private lateinit var shortcutChannel: MethodChannel
+    private val scope = CoroutineScope(Dispatchers.Main)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -133,6 +138,29 @@ class MainActivity : AudioServiceActivity() {
                     }
                 }
 
+                else -> result.notImplemented()
+            }
+        }
+
+        // 快捷方式功能的MethodChannel
+        shortcutChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "piliplus/shortcut")
+        shortcutChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "createFavShortcut" -> {
+                    val mediaId = call.argument<String>("mediaId")
+                    val title = call.argument<String>("title")
+                    val customIconPath = call.argument<String?>("customIconPath")
+
+                    if (mediaId != null && title != null) {
+                        scope.launch {
+                            val success = ShortcutHelper(this@MainActivity)
+                                .createFavShortcut(mediaId, title, customIconPath)
+                            result.success(success)
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "Missing required arguments", null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

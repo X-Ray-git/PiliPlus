@@ -32,13 +32,41 @@ abstract final class PiliScheme {
   static final uriDigitRegExp = RegExp(r'/(\d+)');
   static final _prefixRegex = RegExp(r'^\S+://');
 
+  static Uri? _pendingInitialLink;
+  
   static void init() {
     // Register our protocol only on Windows platform
     // registerProtocolHandler('bilibili');
     appLinks = AppLinks();
 
+    // 处理应用启动时的初始链接（从快捷方式启动）
+    // 保存起来，不立即处理，等待应用完全启动后再处理
+    appLinks.getInitialLink().then((uri) {
+      if (kDebugMode) debugPrint('🔗 Initial Link: $uri');
+      if (uri != null) {
+        _pendingInitialLink = uri;
+        if (kDebugMode) debugPrint('🔗 Saved initial link, will process after app ready');
+      } else {
+        if (kDebugMode) debugPrint('🔗 No initial link found');
+      }
+    });
+
+    // 监听应用运行时收到的链接
     listener?.cancel();
-    listener = appLinks.uriLinkStream.listen(routePush);
+    listener = appLinks.uriLinkStream.listen((uri) {
+      if (kDebugMode) debugPrint('🔗 Stream Link: $uri');
+      routePush(uri);
+    });
+  }
+  
+  // 在应用完全启动后调用此方法处理待处理的初始链接
+  static void processPendingInitialLink() {
+    if (_pendingInitialLink != null) {
+      if (kDebugMode) debugPrint('🔗 Processing pending initial link: $_pendingInitialLink');
+      final uri = _pendingInitialLink!;
+      _pendingInitialLink = null;
+      routePush(uri);
+    }
   }
 
   static Future<bool> routePushFromUrl(
