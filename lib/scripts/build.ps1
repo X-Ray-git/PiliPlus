@@ -5,7 +5,7 @@ param(
 try {
     $versionName = $null
 
-    $versionCode = [int](git rev-list --count HEAD).Trim()
+    $versionCode = [int](git rev-list --count HEAD).Trim() + 407
 
     $commitHash = (git rev-parse HEAD).Trim()
 
