@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/cached_network_svg_image.dart';
 import 'package:PiliPlus/common/widgets/image/custom_grid_view.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -18,7 +19,6 @@ import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
@@ -69,7 +69,7 @@ class OpusContent extends StatelessWidget {
                     ? null
                     : colorScheme.primary,
               ),
-              recognizer: TapGestureRecognizer()
+              recognizer: NoDeadlineTapGestureRecognizer()
                 ..onTap = () {
                   switch (rich.type) {
                     case 'RICH_TEXT_NODE_TYPE_AT':
@@ -215,12 +215,13 @@ class OpusContent extends StatelessWidget {
             case 2 when (element.pic != null):
               if (element.pic!.pics!.length == 1) {
                 final pic = element.pic!.pics!.first;
-                final width = pic.width == null
+                double? width = pic.width == null
                     ? null
                     : math.min(maxWidth, pic.width!);
                 final height = width == null || pic.height == null
                     ? null
                     : width * pic.height! / pic.width!;
+                width ??= maxWidth;
                 return GestureDetector(
                   onTap: () => PageUtils.imageView(
                     imgList: [SourceModel(url: pic.url!)],
@@ -232,7 +233,7 @@ class OpusContent extends StatelessWidget {
                       child: CachedNetworkImage(
                         width: width,
                         height: height,
-                        memCacheWidth: width?.cacheSize(context),
+                        memCacheWidth: width.cacheSize(context),
                         imageUrl: ImageUtils.thumbnailUrl(pic.url!, 60),
                         fadeInDuration: const Duration(milliseconds: 120),
                         fadeOutDuration: const Duration(milliseconds: 120),
@@ -259,10 +260,10 @@ class OpusContent extends StatelessWidget {
             case 3 when (element.line != null):
               final height = element.line!.pic!.height?.toDouble();
               return CachedNetworkImage(
-                width: maxWidth,
-                fit: BoxFit.contain,
+                fit: .contain,
                 height: height,
-                memCacheHeight: height?.cacheSize(context),
+                width: maxWidth,
+                memCacheWidth: maxWidth.cacheSize(context),
                 imageUrl: ImageUtils.thumbnailUrl(element.line!.pic!.url!),
                 placeholder: (_, _) => const SizedBox.shrink(),
               );
@@ -292,7 +293,7 @@ class OpusContent extends StatelessWidget {
                             return TextSpan(
                               text: '${hasUrl ? '\u{1F517}' : ''}$text',
                               recognizer: hasUrl
-                                  ? (TapGestureRecognizer()
+                                  ? (NoDeadlineTapGestureRecognizer()
                                       ..onTap = () =>
                                           PiliScheme.routePushFromUrl(jumpUrl))
                                   : null,
@@ -357,10 +358,12 @@ class OpusContent extends StatelessWidget {
                         spacing: 10,
                         children: [
                           NetworkImgLayer(
-                            radius: 6,
                             width: 104,
                             height: 65,
                             src: element.linkCard!.card!.ugc!.cover,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(6),
+                            ),
                           ),
                           Expanded(
                             child: Column(
@@ -396,10 +399,12 @@ class OpusContent extends StatelessWidget {
                         spacing: 10,
                         children: [
                           NetworkImgLayer(
-                            radius: 6,
                             width: 104,
                             height: 65,
                             src: element.linkCard!.card!.common!.cover,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(6),
+                            ),
                           ),
                           Expanded(
                             child: Column(
@@ -433,10 +438,12 @@ class OpusContent extends StatelessWidget {
                         spacing: 10,
                         children: [
                           NetworkImgLayer(
-                            radius: 6,
                             width: 104,
                             height: 65,
                             src: element.linkCard!.card!.live!.cover,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(6),
+                            ),
                           ),
                           Expanded(
                             child: Column(
@@ -470,10 +477,12 @@ class OpusContent extends StatelessWidget {
                         spacing: 10,
                         children: [
                           NetworkImgLayer(
-                            radius: 6,
                             width: 104,
                             height: 65,
                             src: element.linkCard!.card!.opus!.cover,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(6),
+                            ),
                           ),
                           Expanded(
                             child: Column(
@@ -531,10 +540,12 @@ class OpusContent extends StatelessWidget {
                         spacing: 10,
                         children: [
                           NetworkImgLayer(
-                            radius: 6,
                             width: 104,
                             height: 65,
                             src: element.linkCard!.card!.music!.cover,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(6),
+                            ),
                           ),
                           Expanded(
                             child: Column(
@@ -569,10 +580,12 @@ class OpusContent extends StatelessWidget {
                               spacing: 10,
                               children: [
                                 NetworkImgLayer(
-                                  radius: 6,
                                   width: 104,
                                   height: 65,
                                   src: e.cover,
+                                  borderRadius: const BorderRadius.all(
+                                    Radius.circular(6),
+                                  ),
                                 ),
                                 Expanded(
                                   child: Column(

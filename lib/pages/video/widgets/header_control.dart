@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:convert' show jsonDecode, utf8;
 import 'dart:io';
 import 'dart:math';
 
@@ -208,12 +208,15 @@ class HeaderControl extends StatefulWidget {
       return true;
     } else {
       res.toast();
-      if ((res as Error).code == 65006) {
-        extra.isLike = true;
-        return true;
-      } else if (res.code == 65004) {
-        extra.isLike = false;
-        return true;
+      if (res case Error(:final code)) {
+        if (code == 65006) {
+          extra.isLike = true;
+          return true;
+        }
+        if (code == 65004) {
+          extra.isLike = false;
+          return true;
+        }
       }
       return false;
     }
@@ -275,11 +278,11 @@ class HeaderControl extends StatefulWidget {
     required int roomId,
     required String msg,
     required LiveDanmaku extra,
-    required PlPlayerController ctr,
   }) {
     if (Accounts.main.isLogin) {
       return autoWrapReportDialog(
         context,
+        ban: false,
         ReportOptions.liveDanmakuReport,
         (reasonType, reasonDesc, banUid) {
           // if (banUid) {
@@ -404,10 +407,9 @@ class HeaderControlState extends State<HeaderControl>
                     dense: true,
                     onTap: () {
                       Get.back();
-                      ImageUtils.downloadImg(
-                        context,
-                        [widget.videoDetailCtr.cover.value],
-                      );
+                      ImageUtils.downloadImg([
+                        widget.videoDetailCtr.cover.value,
+                      ]);
                     },
                     leading: const Icon(Icons.image_outlined, size: 20),
                     title: const Text('保存封面', style: titleStyle),
@@ -534,11 +536,9 @@ class HeaderControlState extends State<HeaderControl>
                       Get.back();
                       final result = await showDialog<CDNService>(
                         context: context,
-                        builder: (context) {
-                          return CdnSelectDialog(
-                            sample: videoInfo.dash?.video?.firstOrNull,
-                          );
-                        },
+                        builder: (context) => CdnSelectDialog(
+                          sample: videoInfo.dash?.video?.firstOrNull,
+                        ),
                       );
                       if (result != null) {
                         VideoUtils.cdnService = result;
@@ -715,34 +715,41 @@ class HeaderControlState extends State<HeaderControl>
                         final first = file.files.first;
                         final path = first.path;
                         if (path != null) {
-                          final file = File(path);
-                          final stream = file.openRead().transform(
-                            utf8.decoder,
-                          );
-                          final buffer = StringBuffer();
-                          await for (final chunk in stream) {
-                            if (!mounted) return;
-                            buffer.write(chunk);
-                          }
-                          if (!mounted) return;
-                          String sub = buffer.toString();
                           final name = first.name;
+                          final length = videoDetailCtr.subtitles.length;
                           if (name.endsWith('.json')) {
+                            final file = File(path);
+                            final stream = file.openRead().transform(
+                              utf8.decoder,
+                            );
+                            final buffer = StringBuffer();
+                            await for (final chunk in stream) {
+                              if (!mounted) return;
+                              buffer.write(chunk);
+                            }
+                            if (!mounted) return;
+                            String sub = buffer.toString();
                             sub = await compute<List, String>(
                               VideoHttp.processList,
                               jsonDecode(sub)['body'],
                             );
                             if (!mounted) return;
+                            videoDetailCtr.vttSubtitles[length] = (
+                              isData: true,
+                              id: sub,
+                            );
+                          } else {
+                            videoDetailCtr.vttSubtitles[length] = (
+                              isData: false,
+                              id: path,
+                            );
                           }
-                          final length = videoDetailCtr.subtitles.length;
-                          videoDetailCtr
-                            ..subtitles.add(
-                              Subtitle(
-                                lan: '',
-                                lanDoc: name.split('.').firstOrNull ?? name,
-                              ),
-                            )
-                            ..vttSubtitles[length] = sub;
+                          videoDetailCtr.subtitles.add(
+                            Subtitle(
+                              lan: '',
+                              lanDoc: name.split('.').firstOrNull ?? name,
+                            ),
+                          );
                           await videoDetailCtr.setSubtitle(length + 1);
                         }
                       }
@@ -1221,81 +1228,79 @@ class HeaderControlState extends State<HeaderControl>
   void onExportSubtitle() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          clipBehavior: Clip.hardEdge,
-          contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-          title: const Text('保存字幕'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: videoDetailCtr.subtitles
-                  .map(
-                    (item) => ListTile(
-                      dense: true,
-                      onTap: () async {
-                        Get.back();
-                        final url = item.subtitleUrl;
-                        if (url == null || url.isEmpty) return;
-                        try {
-                          final res = await Request.dio.get<Uint8List>(
-                            url.http2https,
-                            options: Options(
-                              responseType: ResponseType.bytes,
-                              headers: Constants.baseHeaders,
-                              extra: {'account': const NoAccount()},
+      builder: (context) => AlertDialog(
+        clipBehavior: Clip.hardEdge,
+        contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+        title: const Text('保存字幕'),
+        content: SingleChildScrollView(
+          child: Column(
+            children: videoDetailCtr.subtitles
+                .map(
+                  (item) => ListTile(
+                    dense: true,
+                    onTap: () async {
+                      Get.back();
+                      final url = item.subtitleUrl;
+                      if (url == null || url.isEmpty) return;
+                      try {
+                        final res = await Request.dio.get<Uint8List>(
+                          url.http2https,
+                          options: Options(
+                            responseType: ResponseType.bytes,
+                            headers: Constants.baseHeaders,
+                            extra: {'account': const NoAccount()},
+                          ),
+                        );
+                        if (res.statusCode == 200) {
+                          final bytes = Uint8List.fromList(
+                            Request.responseBytesDecoder(
+                              res.data!,
+                              res.headers.map,
                             ),
                           );
-                          if (res.statusCode == 200) {
-                            final bytes = Uint8List.fromList(
-                              Request.responseBytesDecoder(
-                                res.data!,
-                                res.headers.map,
-                              ),
-                            );
-                            String name =
-                                '${introController.videoDetail.value.title}-${videoDetailCtr.bvid}-${videoDetailCtr.cid.value}-${item.lanDoc}.json';
-                            if (Platform.isWindows) {
-                              // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
-                              name = name.replaceAll(
-                                RegExp(r'[<>:/\\|?*"]'),
-                                '',
-                              );
-                            }
-                            Utils.saveBytes2File(
-                              name: name,
-                              bytes: bytes,
-                              allowedExtensions: const ['json'],
+                          String name =
+                              '${introController.videoDetail.value.title}-${videoDetailCtr.bvid}-${videoDetailCtr.cid.value}-${item.lanDoc}.json';
+                          if (Platform.isWindows) {
+                            // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+                            name = name.replaceAll(
+                              RegExp(r'[<>:/\\|?*"]'),
+                              '',
                             );
                           }
-                        } catch (e, s) {
-                          Utils.reportError(e, s);
-                          SmartDialog.showToast(e.toString());
+                          Utils.saveBytes2File(
+                            name: name,
+                            bytes: bytes,
+                            allowedExtensions: const ['json'],
+                          );
                         }
-                      },
-                      title: Text(
-                        item.lanDoc!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
+                      } catch (e, s) {
+                        Utils.reportError(e, s);
+                        SmartDialog.showToast(e.toString());
+                      }
+                    },
+                    title: Text(
+                      item.lanDoc!,
+                      style: const TextStyle(fontSize: 14),
                     ),
-                  )
-                  .toList(),
-            ),
+                  ),
+                )
+                .toList(),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
+  double get subtitleFontScale => plPlayerController.subtitleFontScale;
+  double get subtitleFontScaleFS => plPlayerController.subtitleFontScaleFS;
+  int get subtitlePaddingH => plPlayerController.subtitlePaddingH;
+  int get subtitlePaddingB => plPlayerController.subtitlePaddingB;
+  double get subtitleBgOpacity => plPlayerController.subtitleBgOpacity;
+  double get subtitleStrokeWidth => plPlayerController.subtitleStrokeWidth;
+  int get subtitleFontWeight => plPlayerController.subtitleFontWeight;
+
   /// 字幕设置
   void showSetSubtitle() {
-    double subtitleFontScale = plPlayerController.subtitleFontScale;
-    double subtitleFontScaleFS = plPlayerController.subtitleFontScaleFS;
-    int subtitlePaddingH = plPlayerController.subtitlePaddingH;
-    int subtitlePaddingB = plPlayerController.subtitlePaddingB;
-    double subtitleBgOpacity = plPlayerController.subtitleBgOpacity;
-    double subtitleStrokeWidth = plPlayerController.subtitleStrokeWidth;
-    int subtitleFontWeight = plPlayerController.subtitleFontWeight;
-
     showBottomSheet(
       padding: isFullScreen ? 70 : null,
       (context, setState) {
@@ -1311,57 +1316,50 @@ class HeaderControlState extends State<HeaderControl>
         );
 
         void updateStrokeWidth(double val) {
-          subtitleStrokeWidth = val;
           plPlayerController
-            ..subtitleStrokeWidth = subtitleStrokeWidth
+            ..subtitleStrokeWidth = val
             ..updateSubtitleStyle();
           setState(() {});
         }
 
         void updateOpacity(double val) {
-          subtitleBgOpacity = val.toPrecision(2);
           plPlayerController
-            ..subtitleBgOpacity = subtitleBgOpacity
+            ..subtitleBgOpacity = val.toPrecision(2)
             ..updateSubtitleStyle();
           setState(() {});
         }
 
         void updateBottomPadding(double val) {
-          subtitlePaddingB = val.round();
           plPlayerController
-            ..subtitlePaddingB = subtitlePaddingB
+            ..subtitlePaddingB = val.round()
             ..updateSubtitleStyle();
           setState(() {});
         }
 
         void updateHorizontalPadding(double val) {
-          subtitlePaddingH = val.round();
           plPlayerController
-            ..subtitlePaddingH = subtitlePaddingH
+            ..subtitlePaddingH = val.round()
             ..updateSubtitleStyle();
           setState(() {});
         }
 
         void updateFontScaleFS(double val) {
-          subtitleFontScaleFS = val;
           plPlayerController
-            ..subtitleFontScaleFS = subtitleFontScaleFS
+            ..subtitleFontScaleFS = val
             ..updateSubtitleStyle();
           setState(() {});
         }
 
         void updateFontScale(double val) {
-          subtitleFontScale = val;
           plPlayerController
-            ..subtitleFontScale = subtitleFontScale
+            ..subtitleFontScale = val
             ..updateSubtitleStyle();
           setState(() {});
         }
 
         void updateFontWeight(double val) {
-          subtitleFontWeight = val.toInt();
           plPlayerController
-            ..subtitleFontWeight = subtitleFontWeight
+            ..subtitleFontWeight = val.toInt()
             ..updateSubtitleStyle();
           setState(() {});
         }
@@ -1388,12 +1386,7 @@ class HeaderControlState extends State<HeaderControl>
                       Text(
                         '字体大小 ${(subtitleFontScale * 100).toStringAsFixed(1)}%',
                       ),
-                      resetBtn(
-                        theme,
-                        '100.0%',
-                        () => updateFontScale(1.0),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, '100.0%', () => updateFontScale(1.0)),
                     ],
                   ),
                   Padding(
@@ -1413,8 +1406,6 @@ class HeaderControlState extends State<HeaderControl>
                         label:
                             '${(subtitleFontScale * 100).toStringAsFixed(1)}%',
                         onChanged: updateFontScale,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings(),
                       ),
                     ),
                   ),
@@ -1424,12 +1415,7 @@ class HeaderControlState extends State<HeaderControl>
                       Text(
                         '全屏字体大小 ${(subtitleFontScaleFS * 100).toStringAsFixed(1)}%',
                       ),
-                      resetBtn(
-                        theme,
-                        '150.0%',
-                        () => updateFontScaleFS(1.5),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, '150.0%', () => updateFontScaleFS(1.5)),
                     ],
                   ),
                   Padding(
@@ -1449,8 +1435,6 @@ class HeaderControlState extends State<HeaderControl>
                         label:
                             '${(subtitleFontScaleFS * 100).toStringAsFixed(1)}%',
                         onChanged: updateFontScaleFS,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings,
                       ),
                     ),
                   ),
@@ -1458,12 +1442,7 @@ class HeaderControlState extends State<HeaderControl>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('字体粗细 ${subtitleFontWeight + 1}（可能无法精确调节）'),
-                      resetBtn(
-                        theme,
-                        6,
-                        () => updateFontWeight(5),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, 6, () => updateFontWeight(5)),
                     ],
                   ),
                   Padding(
@@ -1482,8 +1461,6 @@ class HeaderControlState extends State<HeaderControl>
                         divisions: 8,
                         label: '${subtitleFontWeight + 1}',
                         onChanged: updateFontWeight,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings(),
                       ),
                     ),
                   ),
@@ -1491,12 +1468,7 @@ class HeaderControlState extends State<HeaderControl>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('描边粗细 $subtitleStrokeWidth'),
-                      resetBtn(
-                        theme,
-                        2.0,
-                        () => updateStrokeWidth(2.0),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, 2.0, () => updateStrokeWidth(2.0)),
                     ],
                   ),
                   Padding(
@@ -1515,8 +1487,6 @@ class HeaderControlState extends State<HeaderControl>
                         divisions: 10,
                         label: '$subtitleStrokeWidth',
                         onChanged: updateStrokeWidth,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings(),
                       ),
                     ),
                   ),
@@ -1524,12 +1494,7 @@ class HeaderControlState extends State<HeaderControl>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('左右边距 $subtitlePaddingH'),
-                      resetBtn(
-                        theme,
-                        24,
-                        () => updateHorizontalPadding(24),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, 24, () => updateHorizontalPadding(24)),
                     ],
                   ),
                   Padding(
@@ -1548,8 +1513,6 @@ class HeaderControlState extends State<HeaderControl>
                         divisions: 100,
                         label: '$subtitlePaddingH',
                         onChanged: updateHorizontalPadding,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings(),
                       ),
                     ),
                   ),
@@ -1557,12 +1520,7 @@ class HeaderControlState extends State<HeaderControl>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('底部边距 $subtitlePaddingB'),
-                      resetBtn(
-                        theme,
-                        24,
-                        () => updateBottomPadding(24),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, 24, () => updateBottomPadding(24)),
                     ],
                   ),
                   Padding(
@@ -1581,8 +1539,6 @@ class HeaderControlState extends State<HeaderControl>
                         divisions: 200,
                         label: '$subtitlePaddingB',
                         onChanged: updateBottomPadding,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings(),
                       ),
                     ),
                   ),
@@ -1590,12 +1546,7 @@ class HeaderControlState extends State<HeaderControl>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('背景不透明度 ${(subtitleBgOpacity * 100).toInt()}%'),
-                      resetBtn(
-                        theme,
-                        '67%',
-                        () => updateOpacity(0.67),
-                        isDanmaku: false,
-                      ),
+                      resetBtn(theme, '67%', () => updateOpacity(0.67)),
                     ],
                   ),
                   Padding(
@@ -1612,8 +1563,6 @@ class HeaderControlState extends State<HeaderControl>
                         max: 1,
                         value: subtitleBgOpacity,
                         onChanged: updateOpacity,
-                        onChangeEnd: (_) =>
-                            plPlayerController.putSubtitleSettings(),
                       ),
                     ),
                   ),
@@ -1623,7 +1572,7 @@ class HeaderControlState extends State<HeaderControl>
           ),
         );
       },
-    );
+    )?.whenComplete(plPlayerController.putSubtitleSettings);
   }
 
   void showDanmakuPool() {
@@ -1902,11 +1851,13 @@ class HeaderControlState extends State<HeaderControl>
                     color: Colors.white,
                   ),
                   onPressed: () {
-                    if (plPlayerController.isDesktopPip) {
-                      plPlayerController.exitDesktopPip();
-                    } else if (isFullScreen) {
-                      plPlayerController.triggerFullScreen(status: false);
-                    } else if (PlatformUtils.isMobile &&
+                    if (plPlayerController.onPopInvokedWithResult(
+                      false,
+                      null,
+                    )) {
+                      return;
+                    }
+                    if (PlatformUtils.isMobile &&
                         !horizontalScreen &&
                         !isPortrait) {
                       verticalScreenForTwoSeconds();

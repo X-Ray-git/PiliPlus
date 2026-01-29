@@ -48,6 +48,7 @@ import 'package:PiliPlus/plugin/pl_player/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
@@ -204,8 +205,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
   }
 
-  void playCallBack() {
-    plPlayerController?.play();
+  Future<void>? playCallBack() {
+    return plPlayerController?.play();
   }
 
   // 播放器状态监听
@@ -312,6 +313,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     } else {
       await videoDetailController.playerInit(autoplay: true);
     }
+    if (!mounted || !isShowing) return;
     plPlayerController!
       ..addStatusLister(playerListener)
       ..addPositionListener(positionListener);
@@ -369,7 +371,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   // 离开当前页面时
-  Future<void> didPushNext() async {
+  void didPushNext() {
     if (Get.routing.route is HeroDialogRoute) {
       videoDetailController.imageview = true;
       return;
@@ -401,7 +403,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   // 返回当前页面时
-  Future<void> didPopNext() async {
+  void didPopNext() {
     if (videoDetailController.imageview) {
       videoDetailController.imageview = false;
       return;
@@ -441,20 +443,24 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
       }
     }
-    super.didPopNext();
-    if (videoDetailController.autoPlay.value) {
-      await videoDetailController.playerInit(
-        autoplay: videoDetailController.playerStatus == PlayerStatus.playing,
-      );
-    } else if (videoDetailController.plPlayerController.preInitPlayer &&
-        !videoDetailController.isQuerying &&
-        videoDetailController.videoState.value is! Error) {
-      await videoDetailController.playerInit();
-    }
 
-    plPlayerController
-      ?..addStatusLister(playerListener)
-      ..addPositionListener(positionListener);
+    () async {
+      if (videoDetailController.autoPlay.value) {
+        await videoDetailController.playerInit(
+          autoplay: videoDetailController.playerStatus == PlayerStatus.playing,
+        );
+      } else if (videoDetailController.plPlayerController.preInitPlayer &&
+          !videoDetailController.isQuerying &&
+          videoDetailController.videoState.value is! Error) {
+        await videoDetailController.playerInit();
+      }
+      if (!mounted || !isShowing) return;
+      plPlayerController
+        ?..addStatusLister(playerListener)
+        ..addPositionListener(positionListener);
+    }();
+
+    super.didPopNext();
   }
 
   @override
@@ -472,7 +478,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     maxHeight = size.height;
 
     final shortestSide = size.shortestSide;
-    final minVideoHeight = shortestSide * 9 / 16;
+    final minVideoHeight = shortestSide / StyleString.aspectRatio16x9;
     final maxVideoHeight = max(size.longestSide * 0.65, shortestSide);
     videoDetailController
       ..isPortrait = isPortrait = maxHeight >= maxWidth
@@ -954,7 +960,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         enableVerticalExpand &&
         !isPortrait) {
       final double videoHeight = maxHeight - padding.vertical;
-      final double width = videoHeight * 9 / 16;
+      final double width = videoHeight / StyleString.aspectRatio16x9;
       final videoWidth = isFullScreen ? maxWidth : width;
       final introWidth = (maxWidth - padding.horizontal - width) / 2;
       final introHeight = maxHeight - padding.top;
@@ -1016,10 +1022,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       width = maxWidth - clampDouble(maxWidth - width, 280, 425);
     }
     final videoWidth = isFullScreen ? maxWidth : width;
-    final double height = width * 9 / 16;
+    final double height = width / StyleString.aspectRatio16x9;
     final videoHeight = isFullScreen ? maxHeight - padding.top : height;
     if (height > maxHeight) {
-      return childSplit(16 / 9);
+      return childSplit(StyleString.aspectRatio16x9);
     }
     final introHeight = maxHeight - height - padding.top;
     final showIntro =
@@ -1277,6 +1283,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                 'assets/images/play.png',
                 width: 60,
                 height: 60,
+                cacheHeight: 60.cacheSize(context),
               ),
             ),
           ),
@@ -1310,10 +1317,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         ),
       if (videoDetailController.cover.value.isNotEmpty)
         PopupMenuItem(
-          onTap: () => ImageUtils.downloadImg(
-            context,
-            [videoDetailController.cover.value],
-          ),
+          onTap: () =>
+              ImageUtils.downloadImg([videoDetailController.cover.value]),
           child: const Text('保存封面'),
         ),
       if (!videoDetailController.isFileSource && videoDetailController.isUgc)
@@ -1338,41 +1343,49 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     required double width,
     required double height,
     bool isPipMode = false,
-  }) => Obx(
+  }) => PopScope(
     key: videoDetailController.videoPlayerKey,
-    () =>
-        videoDetailController.videoState.value is! Success ||
-            !videoDetailController.autoPlay.value ||
-            plPlayerController?.videoController == null
-        ? const SizedBox.shrink()
-        : PLVideoPlayer(
-            maxWidth: width,
-            maxHeight: height,
-            plPlayerController: plPlayerController!,
-            videoDetailController: videoDetailController,
-            introController: introController,
-            headerControl: HeaderControl(
-              key: videoDetailController.headerCtrKey,
-              isPortrait: isPortrait,
-              controller: videoDetailController.plPlayerController,
-              videoDetailCtr: videoDetailController,
-              heroTag: heroTag,
-            ),
-            danmuWidget: isPipMode && pipNoDanmaku
-                ? null
-                : Obx(
-                    () => PlDanmaku(
-                      key: ValueKey(videoDetailController.cid.value),
-                      isPipMode: isPipMode,
-                      cid: videoDetailController.cid.value,
-                      playerController: plPlayerController!,
-                      isFullScreen: plPlayerController!.isFullScreen.value,
-                      isFileSource: videoDetailController.isFileSource,
+    canPop:
+        !isFullScreen &&
+        !videoDetailController.plPlayerController.isDesktopPip &&
+        (videoDetailController.horizontalScreen || isPortrait),
+    onPopInvokedWithResult: _onPopInvokedWithResult,
+    child: Obx(
+      () =>
+          videoDetailController.videoState.value is! Success ||
+              !videoDetailController.autoPlay.value ||
+              plPlayerController?.videoController == null
+          ? const SizedBox.shrink()
+          : PLVideoPlayer(
+              maxWidth: width,
+              maxHeight: height,
+              plPlayerController: plPlayerController!,
+              videoDetailController: videoDetailController,
+              introController: introController,
+              headerControl: HeaderControl(
+                key: videoDetailController.headerCtrKey,
+                isPortrait: isPortrait,
+                controller: videoDetailController.plPlayerController,
+                videoDetailCtr: videoDetailController,
+                heroTag: heroTag,
+              ),
+              danmuWidget: isPipMode && pipNoDanmaku
+                  ? null
+                  : Obx(
+                      () => PlDanmaku(
+                        key: ValueKey(videoDetailController.cid.value),
+                        isPipMode: isPipMode,
+                        cid: videoDetailController.cid.value,
+                        playerController: plPlayerController!,
+                        isFullScreen: plPlayerController!.isFullScreen.value,
+                        isFileSource: videoDetailController.isFileSource,
+                        size: Size(width, height),
+                      ),
                     ),
-                  ),
-            showEpisodes: showEpisodes,
-            showViewPoints: showViewPoints,
-          ),
+              showEpisodes: showEpisodes,
+              showViewPoints: showViewPoints,
+            ),
+    ),
   );
 
   late ThemeData themeData;
@@ -1390,7 +1403,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       child = childWhenDisabled;
     } else if (maxWidth / maxHeight >= kScreenRatio) {
       child = childWhenDisabledLandscape;
-    } else if (maxWidth * (9 / 16) < (2 / 5) * maxHeight) {
+    } else if (maxWidth / StyleString.aspectRatio16x9 < 0.4 * maxHeight) {
       child = childWhenDisabled;
     } else {
       child = childWhenDisabledAlmostSquare;
@@ -1487,251 +1500,243 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }).toList(),
     );
 
-    return Container(
-      height: 45,
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            width: 1,
             color: themeData.dividerColor.withValues(alpha: 0.1),
           ),
         ),
       ),
-      child: Row(
-        children: [
-          if (tabs.isEmpty)
-            const Spacer()
-          else
+      child: SizedBox(
+        height: 45,
+        child: Row(
+          children: [
+            if (tabs.isEmpty)
+              const Spacer()
+            else
+              Flexible(
+                flex: tabs.length == 3 ? 2 : 1,
+                child: tabBar(),
+              ),
             Flexible(
-              flex: tabs.length == 3 ? 2 : 1,
-              child: tabBar(),
-            ),
-          Flexible(
-            flex: 1,
-            child: Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    height: 32,
-                    child: TextButton(
-                      style: const ButtonStyle(
-                        padding: WidgetStatePropertyAll(EdgeInsets.zero),
-                      ),
-                      onPressed: videoDetailController.showShootDanmakuSheet,
-                      child: Text(
-                        '发弹幕',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: themeData.colorScheme.onSurfaceVariant,
+              flex: 1,
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      height: 32,
+                      child: TextButton(
+                        style: const ButtonStyle(
+                          padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                        ),
+                        onPressed: videoDetailController.showShootDanmakuSheet,
+                        child: Text(
+                          '发弹幕',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: themeData.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(
-                    width: 38,
-                    height: 38,
-                    child: Obx(
-                      () {
-                        final ctr = videoDetailController.plPlayerController;
-                        final enableShowDanmaku = ctr.enableShowDanmaku.value;
-                        return IconButton(
-                          onPressed: () {
-                            final newVal = !enableShowDanmaku;
-                            ctr.enableShowDanmaku.value = newVal;
-                            if (!ctr.tempPlayerConf) {
-                              GStorage.setting.put(
-                                SettingBoxKey.enableShowDanmaku,
-                                newVal,
-                              );
-                            }
-                          },
-                          icon: Icon(
-                            size: 22,
-                            enableShowDanmaku
-                                ? CustomIcons.dm_on
-                                : CustomIcons.dm_off,
-                            color: enableShowDanmaku
-                                ? themeData.colorScheme.secondary
-                                : themeData.colorScheme.outline,
-                          ),
-                        );
-                      },
+                    SizedBox(
+                      width: 38,
+                      height: 38,
+                      child: Obx(
+                        () {
+                          final ctr = videoDetailController.plPlayerController;
+                          final enableShowDanmaku = ctr.enableShowDanmaku.value;
+                          return IconButton(
+                            onPressed: () {
+                              final newVal = !enableShowDanmaku;
+                              ctr.enableShowDanmaku.value = newVal;
+                              if (!ctr.tempPlayerConf) {
+                                GStorage.setting.put(
+                                  SettingBoxKey.enableShowDanmaku,
+                                  newVal,
+                                );
+                              }
+                            },
+                            icon: Icon(
+                              size: 22,
+                              enableShowDanmaku
+                                  ? CustomIcons.dm_on
+                                  : CustomIcons.dm_off,
+                              color: enableShowDanmaku
+                                  ? themeData.colorScheme.secondary
+                                  : themeData.colorScheme.outline,
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                ],
+                    const SizedBox(width: 14),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
-    return PopScope(
-      canPop:
-          !isFullScreen &&
-          (videoDetailController.horizontalScreen || isPortrait),
-      onPopInvokedWithResult: _onPopInvokedWithResult,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          const Positioned.fill(child: ColoredBox(color: Colors.black)),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Positioned.fill(child: ColoredBox(color: Colors.black)),
 
-          if (isShowing) plPlayer(width: width, height: height),
+        if (isShowing) plPlayer(width: width, height: height),
 
-          Obx(() {
-            if (!videoDetailController.autoPlay.value) {
-              return Positioned.fill(
-                child: GestureDetector(
-                  onTap: handlePlay,
-                  child: Obx(
-                    () => NetworkImgLayer(
-                      radius: 0,
-                      quality: 60,
-                      src: videoDetailController.cover.value,
-                      width: width,
-                      height: height,
-                      boxFit: BoxFit.cover,
-                      forceUseCacheWidth: true,
-                      getPlaceHolder: () => Center(
-                        child: Image.asset('assets/images/loading.png'),
-                      ),
+        Obx(() {
+          if (!videoDetailController.autoPlay.value) {
+            return Positioned.fill(
+              child: GestureDetector(
+                onTap: handlePlay,
+                behavior: .opaque,
+                child: Obx(
+                  () => NetworkImgLayer(
+                    type: .emote,
+                    quality: 60,
+                    src: videoDetailController.cover.value,
+                    width: width,
+                    height: height,
+                    cacheWidth: true,
+                    getPlaceHolder: () => Center(
+                      child: Image.asset('assets/images/loading.png'),
                     ),
                   ),
                 ),
-              );
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+        manualPlayerWidget,
+
+        if (videoDetailController.plPlayerController.enableBlock ||
+            videoDetailController.continuePlayingPart)
+          Positioned(
+            left: 16,
+            bottom: isFullScreen ? max(75, maxHeight * 0.25) : 75,
+            width: MediaQuery.textScalerOf(context).scale(120),
+            child: AnimatedList(
+              padding: EdgeInsets.zero,
+              key: videoDetailController.listKey,
+              reverse: true,
+              shrinkWrap: true,
+              initialItemCount: videoDetailController.listData.length,
+              itemBuilder: (context, index, animation) {
+                return videoDetailController.buildItem(
+                  videoDetailController.listData[index],
+                  animation,
+                );
+              },
+            ),
+          ),
+
+        // for debug
+        // Positioned(
+        //   right: 16,
+        //   bottom: 75,
+        //   child: FilledButton.tonal(
+        //     onPressed: () {
+        //       videoDetailController.onAddItem(
+        //         SegmentModel(
+        //           UUID: '',
+        //           segmentType:
+        //               SegmentType.values[Utils.random.nextInt(
+        //                 SegmentType.values.length,
+        //               )],
+        //           segment: Pair(first: 0, second: 0),
+        //           skipType: SkipType.alwaysSkip,
+        //         ),
+        //       );
+        //     },
+        //     child: const Text('skip'),
+        //   ),
+        // ),
+        // Positioned(
+        //   right: 16,
+        //   bottom: 120,
+        //   child: FilledButton.tonal(
+        //     onPressed: () {
+        //       videoDetailController.onAddItem(2);
+        //     },
+        //     child: const Text('index'),
+        //   ),
+        // ),
+        Obx(
+          () {
+            if (videoDetailController.showSteinEdgeInfo.value) {
+              try {
+                return Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: plPlayerController?.showControls.value == true
+                          ? 75
+                          : 16,
+                    ),
+                    child: Wrap(
+                      spacing: 25,
+                      runSpacing: 10,
+                      children: videoDetailController
+                          .steinEdgeInfo!
+                          .edges!
+                          .questions!
+                          .first
+                          .choices!
+                          .map((item) {
+                            return FilledButton.tonal(
+                              style: FilledButton.styleFrom(
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(6),
+                                  ),
+                                ),
+                                backgroundColor: themeData
+                                    .colorScheme
+                                    .secondaryContainer
+                                    .withValues(alpha: 0.8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 15,
+                                  vertical: 10,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () {
+                                ugcIntroController.onChangeEpisode(
+                                  item,
+                                  isStein: true,
+                                );
+                                videoDetailController.getSteinEdgeInfo(
+                                  item.id,
+                                );
+                              },
+                              child: Text(item.option!),
+                            );
+                          })
+                          .toList(),
+                    ),
+                  ),
+                );
+              } catch (e) {
+                if (kDebugMode) debugPrint('build stein edges: $e');
+                return const SizedBox.shrink();
+              }
             }
             return const SizedBox.shrink();
-          }),
-          manualPlayerWidget,
-
-          if (videoDetailController.plPlayerController.enableBlock ||
-              videoDetailController.continuePlayingPart)
-            Positioned(
-              left: 16,
-              bottom: isFullScreen ? max(75, maxHeight * 0.25) : 75,
-              child: SizedBox(
-                width: MediaQuery.textScalerOf(context).scale(120),
-                child: AnimatedList(
-                  padding: EdgeInsets.zero,
-                  key: videoDetailController.listKey,
-                  reverse: true,
-                  shrinkWrap: true,
-                  initialItemCount: videoDetailController.listData.length,
-                  itemBuilder: (context, index, animation) {
-                    return videoDetailController.buildItem(
-                      videoDetailController.listData[index],
-                      animation,
-                    );
-                  },
-                ),
-              ),
-            ),
-
-          // for debug
-          // Positioned(
-          //   right: 16,
-          //   bottom: 75,
-          //   child: FilledButton.tonal(
-          //     onPressed: () {
-          //       videoDetailController.onAddItem(
-          //         SegmentModel(
-          //           UUID: '',
-          //           segmentType:
-          //               SegmentType.values[Utils.random.nextInt(
-          //                 SegmentType.values.length,
-          //               )],
-          //           segment: Pair(first: 0, second: 0),
-          //           skipType: SkipType.alwaysSkip,
-          //         ),
-          //       );
-          //     },
-          //     child: const Text('skip'),
-          //   ),
-          // ),
-          // Positioned(
-          //   right: 16,
-          //   bottom: 120,
-          //   child: FilledButton.tonal(
-          //     onPressed: () {
-          //       videoDetailController.onAddItem(2);
-          //     },
-          //     child: const Text('index'),
-          //   ),
-          // ),
-          Obx(
-            () {
-              if (videoDetailController.showSteinEdgeInfo.value) {
-                try {
-                  return Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: 16,
-                        right: 16,
-                        bottom: plPlayerController?.showControls.value == true
-                            ? 75
-                            : 16,
-                      ),
-                      child: Wrap(
-                        spacing: 25,
-                        runSpacing: 10,
-                        children: videoDetailController
-                            .steinEdgeInfo!
-                            .edges!
-                            .questions!
-                            .first
-                            .choices!
-                            .map((item) {
-                              return FilledButton.tonal(
-                                style: FilledButton.styleFrom(
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(6),
-                                    ),
-                                  ),
-                                  backgroundColor: themeData
-                                      .colorScheme
-                                      .secondaryContainer
-                                      .withValues(alpha: 0.8),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 15,
-                                    vertical: 10,
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                onPressed: () {
-                                  ugcIntroController.onChangeEpisode(
-                                    item,
-                                    isStein: true,
-                                  );
-                                  videoDetailController.getSteinEdgeInfo(
-                                    item.id,
-                                  );
-                                },
-                                child: Text(item.option!),
-                              );
-                            })
-                            .toList(),
-                      ),
-                    ),
-                  );
-                } catch (e) {
-                  if (kDebugMode) debugPrint('build stein edges: $e');
-                  return const SizedBox.shrink();
-                }
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-        ],
-      ),
+          },
+        ),
+      ],
     );
   }
 
@@ -2179,20 +2184,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }
 
   void _onPopInvokedWithResult(bool didPop, result) {
-    if (didPop) {
-      videoDetailController.plPlayerController.disableAutoEnterPipIfNeeded();
-    }
-    if (plPlayerController?.controlsLock.value == true) {
-      plPlayerController?.onLockControl(false);
+    if (plPlayerController?.onPopInvokedWithResult(didPop, result) ?? false) {
       return;
     }
-    if (isFullScreen) {
-      videoDetailController.plPlayerController.triggerFullScreen(status: false);
-      return;
-    }
-    if (!videoDetailController.horizontalScreen && !isPortrait) {
+    if (PlatformUtils.isMobile &&
+        !videoDetailController.horizontalScreen &&
+        !isPortrait) {
       verticalScreenForTwoSeconds();
-      return;
     }
   }
 

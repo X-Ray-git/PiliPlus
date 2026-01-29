@@ -23,28 +23,15 @@ void imageSaveDialog({
   dynamic aid,
   String? bvid,
 }) {
-  final double imgWidth = MediaQuery.sizeOf(Get.context!).shortestSide - 8 * 2;
+  final double imgWidth = MediaQuery.sizeOf(Get.context!).shortestSide - 16;
   SmartDialog.show(
     animationType: SmartAnimationType.centerScale_otherSlide,
     builder: (context) {
+      const iconSize = 20.0;
       final theme = Theme.of(context);
-
-      Widget iconBtn({
-        String? tooltip,
-        required Icon icon,
-        required VoidCallback? onPressed,
-      }) {
-        return iconButton(
-          icon: icon,
-          iconSize: 20,
-          tooltip: tooltip,
-          onPressed: onPressed,
-        );
-      }
-
       return Container(
         width: imgWidth,
-        margin: const EdgeInsets.symmetric(horizontal: StyleString.safeSpace),
+        margin: const .symmetric(horizontal: StyleString.safeSpace),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: StyleString.mdRadius,
@@ -58,32 +45,29 @@ void imageSaveDialog({
                 GestureDetector(
                   onTap: SmartDialog.dismiss,
                   child: NetworkImgLayer(
-                    width: imgWidth,
-                    height: imgWidth / StyleString.aspectRatio,
                     src: cover,
                     quality: 100,
+                    width: imgWidth,
+                    height: imgWidth / StyleString.aspectRatio16x9,
+                    borderRadius: const .vertical(top: StyleString.imgRadius),
                   ),
                 ),
                 Positioned(
                   right: 8,
                   top: 8,
-                  child: SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: IconButton(
-                      tooltip: '关闭',
-                      style: ButtonStyle(
-                        backgroundColor: WidgetStatePropertyAll(
-                          Colors.black.withValues(alpha: 0.3),
-                        ),
-                        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-                      ),
-                      onPressed: SmartDialog.dismiss,
-                      icon: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Colors.white,
-                      ),
+                  width: 30,
+                  height: 30,
+                  child: IconButton(
+                    tooltip: '关闭',
+                    style: IconButton.styleFrom(
+                      padding: .zero,
+                      backgroundColor: Colors.black.withValues(alpha: 0.3),
+                    ),
+                    onPressed: SmartDialog.dismiss,
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -103,17 +87,17 @@ void imageSaveDialog({
                   else
                     const Spacer(),
                   if (aid != null || bvid != null) ...[
-                    iconBtn(
+                    iconButton(
+                      iconSize: iconSize,
                       tooltip: '稍后再看',
                       onPressed: () => {
                         SmartDialog.dismiss(),
-                        UserHttp.toViewLater(aid: aid, bvid: bvid).then(
-                          (res) => SmartDialog.showToast(res['msg']),
-                        ),
+                        UserHttp.toViewLater(aid: aid, bvid: bvid),
                       },
                       icon: const Icon(Icons.watch_later_outlined),
                     ),
-                    iconBtn(
+                    iconButton(
+                      iconSize: iconSize,
                       tooltip: '收藏',
                       onPressed: () async {
                         SmartDialog.dismiss();
@@ -220,7 +204,8 @@ void imageSaveDialog({
                   ],
                   if (cover != null && cover.isNotEmpty) ...[
                     if (PlatformUtils.isMobile)
-                      iconBtn(
+                      iconButton(
+                        iconSize: iconSize,
                         tooltip: '分享',
                         onPressed: () {
                           SmartDialog.dismiss();
@@ -228,13 +213,11 @@ void imageSaveDialog({
                         },
                         icon: const Icon(Icons.share),
                       ),
-                    iconBtn(
+                    iconButton(
+                      iconSize: iconSize,
                       tooltip: '保存封面图',
                       onPressed: () async {
-                        bool saveStatus = await ImageUtils.downloadImg(
-                          context,
-                          [cover],
-                        );
+                        bool saveStatus = await ImageUtils.downloadImg([cover]);
                         if (saveStatus) {
                           SmartDialog.dismiss();
                         }

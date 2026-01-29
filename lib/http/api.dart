@@ -4,7 +4,8 @@ abstract final class Api {
   // 推荐视频
   static const String recommendListApp =
       '${HttpString.appBaseUrl}/x/v2/feed/index';
-  static const String recommendListWeb = '/x/web-interface/index/top/feed/rcmd';
+  static const String recommendListWeb =
+      '/x/web-interface/wbi/index/top/feed/rcmd';
 
   // APP端不感兴趣、取消不感兴趣
   static const String feedDislike = '${HttpString.appBaseUrl}/x/feed/dislike';
@@ -981,4 +982,19 @@ abstract final class Api {
 
   static const String liveContributionRank =
       '${HttpString.liveBaseUrl}/xlive/general-interface/v1/rank/queryContributionRank';
+
+  static const String superChatReport =
+      '${HttpString.liveBaseUrl}/av/v1/SuperChat/report';
+
+  static const String imMsgReport = '${HttpString.tUrl}/x/bplus/im/report/add';
+
+  static const String dynPrivatePubSetting =
+      '/x/dynamic/feed/dyn/private_pub_setting';
+
+  static const String editDyn = '/x/dynamic/feed/edit/dyn';
+
+  static const String replyInteraction =
+      '/x/v2/reply/subject/interaction-status';
+
+  static const String replySubjectModify = '/x/v2/reply/subject/modify';
 }

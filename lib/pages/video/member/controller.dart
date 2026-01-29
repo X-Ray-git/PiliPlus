@@ -37,8 +37,8 @@ class HorizontalMemberPageController
 
   Future<void> getMemberStat() async {
     final res = await MemberHttp.memberStat(mid: mid);
-    if (res['status']) {
-      userStat.addAll(res['data']);
+    if (res case Success(:final response)) {
+      userStat.addAll(response);
     }
   }
 
@@ -47,8 +47,8 @@ class HorizontalMemberPageController
       return;
     }
     final res = await MemberHttp.memberView(mid: mid);
-    if (res['status']) {
-      userStat.addAll(res['data']);
+    if (res case Success(:final response)) {
+      userStat.addAll(response);
     }
   }
 
@@ -63,12 +63,14 @@ class HorizontalMemberPageController
         hasNext = data.hasNext ?? false;
       }
     }
-    if (isLoadPrevious && loadingState.value.isSuccess) {
-      data.item ??= <SpaceArchiveItem>[];
-      data.item!.addAll(loadingState.value.data!);
-    } else if (!isRefresh && loadingState.value.isSuccess) {
-      data.item ??= <SpaceArchiveItem>[];
-      data.item!.insertAll(0, loadingState.value.data!);
+    if (isLoadPrevious) {
+      if (loadingState.value case Success(:final response)) {
+        (data.item ??= <SpaceArchiveItem>[]).addAll(response!);
+      }
+    } else if (!isRefresh) {
+      if (loadingState.value case Success(:final response)) {
+        (data.item ??= <SpaceArchiveItem>[]).insertAll(0, response!);
+      }
     }
     firstAid = data.item?.firstOrNull?.param;
     lastAid = data.item?.lastOrNull?.param;

@@ -18,6 +18,7 @@ class PlDanmaku extends StatefulWidget {
   final bool isPipMode;
   final bool isFullScreen;
   final bool isFileSource;
+  final Size size;
 
   const PlDanmaku({
     super.key,
@@ -26,6 +27,7 @@ class PlDanmaku extends StatefulWidget {
     this.isPipMode = false,
     required this.isFullScreen,
     required this.isFileSource,
+    required this.size,
   });
 
   @override
@@ -157,11 +159,16 @@ class _PlDanmakuState extends State<PlDanmaku> {
       ..removePositionListener(videoPositionListen)
       ..removeStatusLister(playerListener);
     _plDanmakuController.dispose();
+    _controller = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final option = DanmakuOptions.get(
+      notFullscreen: widget.notFullscreen,
+      speed: playerController.playbackSpeed,
+    );
     return Obx(
       () => AnimatedOpacity(
         opacity: playerController.enableShowDanmaku.value
@@ -172,10 +179,8 @@ class _PlDanmakuState extends State<PlDanmaku> {
           createdController: (e) {
             playerController.danmakuController = _controller = e;
           },
-          option: DanmakuOptions.get(
-            notFullscreen: widget.notFullscreen,
-            speed: playerController.playbackSpeed,
-          ),
+          option: option,
+          size: widget.size,
         ),
       ),
     );

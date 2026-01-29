@@ -24,6 +24,7 @@ import 'package:PiliPlus/pages/later/controller.dart';
 import 'package:PiliPlus/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
+import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -120,115 +121,118 @@ abstract final class RequestUtils {
       }
     } else {
       if (followStatus?['tag'] == null) {
-        Map<String, dynamic> result = await UserHttp.hasFollow(mid);
-        if (result['status']) {
-          followStatus = result['data'];
+        final res = await UserHttp.hasFollow(mid);
+        if (res case Success(:final response)) {
+          followStatus = response;
         } else {
-          SmartDialog.showToast(result['msg']);
+          res.toast();
           return;
         }
       }
 
       if (context.mounted) {
+        bool isSpecialFollowed = followStatus!['special'] == 1;
+        String text = isSpecialFollowed ? '移除特别关注' : '加入特别关注';
         showDialog(
           context: context,
-          builder: (context) {
-            bool isSpecialFollowed = followStatus!['special'] == 1;
-            String text = isSpecialFollowed ? '移除特别关注' : '加入特别关注';
-            return AlertDialog(
-              clipBehavior: Clip.hardEdge,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    dense: true,
-                    onTap: () async {
-                      Get.back();
-                      final res = await MemberHttp.specialAction(
-                        fid: mid,
-                        isAdd: !isSpecialFollowed,
-                      );
-                      if (res.isSuccess) {
-                        SmartDialog.showToast('$text成功');
-                        afterMod?.call(isSpecialFollowed ? 2 : -10);
-                      } else {
-                        res.toast();
-                      }
-                    },
-                    title: Text(
-                      text,
-                      style: const TextStyle(fontSize: 14),
-                    ),
+          builder: (context) => AlertDialog(
+            clipBehavior: Clip.hardEdge,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  dense: true,
+                  onTap: () async {
+                    Get.back();
+                    final res = await MemberHttp.specialAction(
+                      fid: mid,
+                      isAdd: !isSpecialFollowed,
+                    );
+                    if (res.isSuccess) {
+                      SmartDialog.showToast('$text成功');
+                      afterMod?.call(isSpecialFollowed ? 2 : -10);
+                    } else {
+                      res.toast();
+                    }
+                  },
+                  title: Text(
+                    text,
+                    style: const TextStyle(fontSize: 14),
                   ),
-                  ListTile(
-                    dense: true,
-                    onTap: () async {
-                      Get.back();
-                      final result = await showModalBottomSheet<Set<int>>(
-                        context: context,
-                        useSafeArea: true,
-                        isScrollControlled: true,
-                        constraints: BoxConstraints(
-                          maxWidth: min(640, context.mediaQueryShortestSide),
-                        ),
-                        builder: (BuildContext context) {
-                          return DraggableScrollableSheet(
-                            minChildSize: 0,
-                            maxChildSize: 1,
-                            initialChildSize: 0.7,
-                            snap: true,
-                            expand: false,
-                            snapSizes: const [0.7],
-                            builder:
-                                (
-                                  BuildContext context,
-                                  ScrollController scrollController,
-                                ) {
-                                  return GroupPanel(
-                                    mid: mid,
-                                    tags: followStatus!['tag'],
-                                    scrollController: scrollController,
-                                  );
-                                },
-                          );
-                        },
-                      );
-                      followStatus!['tag'] = result?.toList();
-                      if (result != null) {
-                        afterMod?.call(result.contains(-10) ? -10 : 2);
-                      }
-                    },
-                    title: const Text(
-                      '设置分组',
-                      style: TextStyle(fontSize: 14),
-                    ),
+                ),
+                ListTile(
+                  dense: true,
+                  onTap: () async {
+                    Get.back();
+                    final result = await showModalBottomSheet<Set<int>>(
+                      context: context,
+                      useSafeArea: true,
+                      isScrollControlled: true,
+                      constraints: BoxConstraints(
+                        maxWidth: min(640, context.mediaQueryShortestSide),
+                      ),
+                      builder: (BuildContext context) {
+                        final maxChildSize =
+                            PlatformUtils.isMobile &&
+                                !context.mediaQuerySize.isPortrait
+                            ? 1.0
+                            : 0.7;
+                        return DraggableScrollableSheet(
+                          minChildSize: 0,
+                          maxChildSize: 1,
+                          snap: true,
+                          expand: false,
+                          snapSizes: [maxChildSize],
+                          initialChildSize: maxChildSize,
+                          builder:
+                              (
+                                BuildContext context,
+                                ScrollController scrollController,
+                              ) {
+                                return GroupPanel(
+                                  mid: mid,
+                                  tags: followStatus!['tag'],
+                                  scrollController: scrollController,
+                                );
+                              },
+                        );
+                      },
+                    );
+                    followStatus!['tag'] = result?.toList();
+                    if (result != null) {
+                      afterMod?.call(result.contains(-10) ? -10 : 2);
+                    }
+                  },
+                  title: const Text(
+                    '设置分组',
+                    style: TextStyle(fontSize: 14),
                   ),
-                  ListTile(
-                    dense: true,
-                    onTap: () async {
-                      Get.back();
-                      final res = await VideoHttp.relationMod(
-                        mid: mid,
-                        act: 2,
-                        reSrc: 11,
-                      );
-                      if (res.isSuccess) {
-                        SmartDialog.showToast('取消关注成功');
-                        afterMod?.call(0);
-                      } else {
-                        res.toast();
-                      }
-                    },
-                    title: const Text(
-                      '取消关注',
-                      style: TextStyle(fontSize: 14),
-                    ),
+                ),
+                ListTile(
+                  dense: true,
+                  onTap: () async {
+                    Get.back();
+                    final res = await VideoHttp.relationMod(
+                      mid: mid,
+                      act: 2,
+                      reSrc: 11,
+                    );
+                    if (res.isSuccess) {
+                      SmartDialog.showToast('取消关注成功');
+                      afterMod?.call(0);
+                    } else {
+                      res.toast();
+                    }
+                  },
+                  title: const Text(
+                    '取消关注',
+                    style: TextStyle(fontSize: 14),
                   ),
-                ],
-              ),
-            );
-          },
+                ),
+              ],
+            ),
+          ),
         );
       }
     }
@@ -275,25 +279,22 @@ abstract final class RequestUtils {
   // }
 
   static Future<void> insertCreatedDyn(dynamic id) async {
-    try {
-      if (id != null) {
+    if (id != null) {
+      try {
         await Future.delayed(const Duration(milliseconds: 450));
         final res = await DynamicsHttp.dynamicDetail(id: id);
-        if (res.isSuccess) {
+        if (res case final Success<DynamicItemModel> e) {
           final ctr = Get.find<DynamicsTabController>(tag: 'all');
-          if (ctr.loadingState.value.isSuccess) {
-            List<DynamicItemModel>? list = ctr.loadingState.value.data;
-            if (list != null) {
-              list.insert(0, res.data);
-              ctr.loadingState.refresh();
-              return;
-            }
+          if (ctr.loadingState.value case Success(:final response?)) {
+            response.insert(0, e.response);
+            ctr.loadingState.refresh();
+            return;
           }
-          ctr.loadingState.value = Success([res.data]);
+          ctr.loadingState.value = Success([e.response]);
         }
+      } catch (e) {
+        if (kDebugMode) debugPrint('create dyn $e');
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('create dyn $e');
     }
   }
 
@@ -313,6 +314,31 @@ abstract final class RequestUtils {
             clearCookie: true,
           );
           final isSuccess = res.isSuccess;
+          final actions = [
+            if (!isSuccess)
+              TextButton(
+                onPressed: () {
+                  Get.back();
+                  Utils.copyText('https://www.bilibili.com/opus/$id');
+                  Get.toNamed(
+                    '/webview',
+                    parameters: {
+                      'url':
+                          'https://www.bilibili.com/h5/comment/appeal?${Utils.themeUrl(Get.isDarkMode)}',
+                    },
+                  );
+                },
+                child: const Text('申诉'),
+              ),
+            if (!isManual)
+              TextButton(
+                onPressed: Get.back,
+                child: Text(
+                  '关闭',
+                  style: TextStyle(color: Get.theme.colorScheme.outline),
+                ),
+              ),
+          ];
           showDialog(
             context: Get.context!,
             barrierDismissible: isManual,
@@ -321,31 +347,7 @@ abstract final class RequestUtils {
               content: SelectableText(
                 '${isSuccess ? '无账号状态下找到了你的动态，动态正常！' : '你的动态被shadow ban（仅自己可见）！'}${dynText != null ? ' \n\n动态内容: $dynText' : ''}',
               ),
-              actions: [
-                if (!isSuccess)
-                  TextButton(
-                    onPressed: () {
-                      Get.back();
-                      Utils.copyText('https://www.bilibili.com/opus/$id');
-                      Get.toNamed(
-                        '/webview',
-                        parameters: {
-                          'url':
-                              'https://www.bilibili.com/h5/comment/appeal?${Utils.themeUrl(Get.isDarkMode)}',
-                        },
-                      );
-                    },
-                    child: const Text('申诉'),
-                  ),
-                if (!isManual)
-                  TextButton(
-                    onPressed: Get.back,
-                    child: Text(
-                      '关闭',
-                      style: TextStyle(color: Get.theme.colorScheme.outline),
-                    ),
-                  ),
-              ],
+              actions: actions.isEmpty ? null : actions,
             ),
           );
         }
@@ -393,8 +395,10 @@ abstract final class RequestUtils {
     required dynamic mid,
   }) {
     FavHttp.allFavFolders(mid).then((res) {
-      if (context.mounted && res.dataOrNull?.list?.isNotEmpty == true) {
-        final list = res.data.list!;
+      if (!context.mounted) return;
+      if (res case Success(:final response)) {
+        final list = response.list;
+        if (list == null || list.isEmpty) return;
         int? checkedId;
         showDialog(
           context: context,
@@ -487,12 +491,12 @@ abstract final class RequestUtils {
     }
 
     final res = await ValidateHttp.gaiaVgateRegister(vVoucher);
-    if (!res['status']) {
-      SmartDialog.showToast("${res['msg']}");
+    if (!res.isSuccess) {
+      res.toast();
       return;
     }
 
-    final resData = res['data'];
+    final resData = res.data;
     if (resData == null) {
       SmartDialog.showToast("null data");
       return;
@@ -500,10 +504,10 @@ abstract final class RequestUtils {
 
     CaptchaDataModel captchaData = CaptchaDataModel();
 
-    final geetest = resData?['geetest'];
+    final geetest = resData['geetest'];
     String? gt = geetest?['gt'];
     String? challenge = geetest?['challenge'];
-    captchaData.token = resData?['token'];
+    captchaData.token = resData['token'];
 
     bool isGeeArgumentValid() {
       return gt?.isNotEmpty == true &&
@@ -523,17 +527,17 @@ abstract final class RequestUtils {
         token: captchaData.token,
         validate: captchaData.validate,
       );
-      if (res['status']) {
-        if (res['data']?['is_valid'] == 1) {
-          final griskId = res['data']?['grisk_id'];
-          if (griskId != null) {
+      if (res case Success(:final response?)) {
+        if (response['is_valid'] == 1) {
+          final griskId = response['grisk_id'];
+          if (griskId is String) {
             onSuccess(griskId);
           }
         } else {
           SmartDialog.showToast('invalid');
         }
       } else {
-        SmartDialog.showToast(res['msg']);
+        res.toast();
       }
     }
 
@@ -653,16 +657,15 @@ abstract final class RequestUtils {
 
   static Future<void> showUserRealName(String mid) async {
     final res = await UserHttp.getUserRealName(mid);
-    if (res.isSuccess) {
-      final data = res.data;
-      final show = !data.name.isNullOrEmpty;
+    if (res case Success(:final response)) {
+      final show = !response.name.isNullOrEmpty;
       showDialog(
         context: Get.context!,
         builder: (context) => AlertDialog(
           title: SelectableText(
-            show ? data.name! : data.rejectPage?.title ?? '',
+            show ? response.name! : response.rejectPage?.title ?? '',
           ),
-          content: show ? null : Text(data.rejectPage?.text ?? ''),
+          content: show ? null : Text(response.rejectPage?.text ?? ''),
           actions: [
             TextButton(
               onPressed: Get.back,

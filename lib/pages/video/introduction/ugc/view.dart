@@ -1,5 +1,8 @@
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
+import 'package:PiliPlus/common/widgets/flutter/selectable_text/selection_area.dart';
+import 'package:PiliPlus/common/widgets/flutter/selectable_text/text.dart';
+import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
@@ -18,12 +21,12 @@ import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/season.dart';
-import 'package:PiliPlus/pages/video/introduction/ugc/widgets/selectable_text.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
@@ -34,8 +37,7 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:expandable/expandable.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide SelectionArea;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -638,7 +640,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   TextSpan(
                     text: matchStr,
                     style: TextStyle(color: theme.colorScheme.primary),
-                    recognizer: TapGestureRecognizer()
+                    recognizer: NoDeadlineTapGestureRecognizer()
                       ..onTap = () async {
                         if (videoDetailCtr
                             .plPlayerController
@@ -701,7 +703,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     TextSpan(
                       text: matchStr,
                       style: TextStyle(color: theme.colorScheme.primary),
-                      recognizer: TapGestureRecognizer()
+                      recognizer: NoDeadlineTapGestureRecognizer()
                         ..onTap = () => PiliScheme.videoPush(aid, null),
                     ),
                   );
@@ -715,7 +717,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     TextSpan(
                       text: matchStr,
                       style: TextStyle(color: theme.colorScheme.primary),
-                      recognizer: TapGestureRecognizer()
+                      recognizer: NoDeadlineTapGestureRecognizer()
                         ..onTap = () => PiliScheme.videoPush(null, matchStr),
                     ),
                   );
@@ -727,7 +729,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   TextSpan(
                     text: matchStr,
                     style: TextStyle(color: theme.colorScheme.primary),
-                    recognizer: TapGestureRecognizer()
+                    recognizer: NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
                         try {
                           Get.find<VideoDetailController>(
@@ -756,7 +758,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           return TextSpan(
             text: '@${currentDesc.rawText}',
             style: TextStyle(color: colorSchemePrimary),
-            recognizer: TapGestureRecognizer()
+            recognizer: NoDeadlineTapGestureRecognizer()
               ..onTap = () => Get.toNamed('/member?mid=${currentDesc.bizId}'),
           );
         default:
@@ -772,6 +774,9 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     int? ownerMid,
     Staff item,
   ) {
+    void onTap() => Get.toNamed(
+      '/member?mid=${item.mid}&from_view_aid=${videoDetailCtr.aid}',
+    );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -780,11 +785,13 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             introController.horizontalMemberPage) {
           widget.onShowMemberPage(ownerMid);
         } else {
-          Get.toNamed(
-            '/member?mid=${item.mid}&from_view_aid=${videoDetailCtr.aid}',
-          );
+          onTap();
         }
       },
+      onSecondaryTap:
+          PlatformUtils.isDesktop && introController.horizontalMemberPage
+          ? onTap
+          : null,
       child: Row(
         children: [
           Stack(
@@ -892,6 +899,12 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   ) => GestureDetector(
     onTap: onPushMember,
     behavior: HitTestBehavior.opaque,
+    onSecondaryTap:
+        PlatformUtils.isDesktop && introController.horizontalMemberPage
+        ? () => Get.toNamed(
+            '/member?mid=${introController.userStat.value.card?.mid}&from_view_aid=${videoDetailCtr.aid}',
+          )
+        : null,
     child: Obx(
       () {
         final userStat = introController.userStat.value;
@@ -1002,6 +1015,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           'assets/images/ai.png',
           height: 18,
           width: 18,
+          cacheHeight: 18.cacheSize(context),
         ),
       ),
     ),

@@ -100,15 +100,14 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   Future<void> queryUserInfo() async {
     final res = await UserHttp.userInfo();
-    if (res.isSuccess) {
-      UserInfoData data = res.data;
-      if (data.isLogin == true) {
-        userInfo.value = data;
-        if (data != Pref.userInfoCache) {
-          GStorage.userInfo.put('userInfoCache', data);
+    if (res case Success(:final response)) {
+      if (response.isLogin == true) {
+        userInfo.value = response;
+        if (response != Pref.userInfoCache) {
+          GStorage.userInfo.put('userInfoCache', response);
         }
         accountService
-          ..face.value = data.face!
+          ..face.value = response.face!
           ..isLogin.value = true;
       } else {
         LoginUtils.onLogoutMain();
@@ -127,8 +126,8 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   Future<void> queryUserStatOwner() async {
     final res = await UserHttp.userStatOwner();
-    if (res['status']) {
-      userStat.value = res['data'];
+    if (res case Success(:final response)) {
+      userStat.value = response;
     }
   }
 

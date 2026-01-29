@@ -10,7 +10,9 @@ import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/pages/whisper_secondary/view.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart' hide ListTile;
@@ -45,10 +47,16 @@ class WhisperSessionItem extends StatelessWidget {
         : null;
     final ThemeData theme = Theme.of(context);
 
-    void onLongPress() => showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
+    return ListTile(
+      safeArea: true,
+      tileColor: item.isPinned
+          ? theme.colorScheme.onInverseSurface.withValues(
+              alpha: theme.brightness.isDark ? 0.4 : 0.8,
+            )
+          : null,
+      onLongPress: () => showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
           clipBehavior: Clip.hardEdge,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           content: DefaultTextStyle(
@@ -90,19 +98,39 @@ class WhisperSessionItem extends StatelessWidget {
               ],
             ),
           ),
-        );
-      },
-    );
-
-    return ListTile(
-      safeArea: true,
-      tileColor: item.isPinned
-          ? theme.colorScheme.onInverseSurface.withValues(
-              alpha: theme.brightness.isDark ? 0.4 : 0.8,
+        ),
+      ),
+      onSecondaryTapUp: PlatformUtils.isDesktop
+          ? (details) => showMenu(
+              context: context,
+              position: PageUtils.menuPosition(details.globalPosition),
+              items: [
+                PopupMenuItem(
+                  height: 42,
+                  onTap: () => onSetTop(item.isPinned, item.id),
+                  child: Text(item.isPinned ? '移除置顶' : '置顶'),
+                ),
+                if (item.id.privateId.hasTalkerUid())
+                  PopupMenuItem(
+                    height: 42,
+                    onTap: () =>
+                        onSetMute(item.isMuted, item.id.privateId.talkerUid),
+                    child: Text('${item.isMuted ? '关闭' : '开启'}免打扰'),
+                  ),
+                if (item.id.privateId.hasTalkerUid())
+                  PopupMenuItem(
+                    height: 42,
+                    onTap: () => showConfirmDialog(
+                      context: context,
+                      title: '确定删除该对话？',
+                      onConfirm: () =>
+                          onRemove(item.id.privateId.talkerUid.toInt()),
+                    ),
+                    child: const Text('删除'),
+                  ),
+              ],
             )
           : null,
-      onLongPress: onLongPress,
-      onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
       onTap: () {
         if (item.hasUnread()) {
           item.clearUnread();
@@ -235,6 +263,7 @@ class WhisperSessionItem extends StatelessWidget {
                   Image.asset(
                     'assets/images/live/live.gif',
                     height: 15,
+                    cacheHeight: 15.cacheSize(context),
                     filterQuality: FilterQuality.low,
                   ),
               ],

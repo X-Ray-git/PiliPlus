@@ -16,6 +16,7 @@ import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
+import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -52,12 +53,7 @@ class SavePanel extends StatefulWidget {
         transitionDuration: const Duration(milliseconds: 255),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
-            opacity: animation.drive(
-              Tween<double>(
-                begin: 0,
-                end: 1,
-              ).chain(CurveTween(curve: Curves.easeInOut)),
-            ),
+            opacity: animation.drive(CurveTween(curve: Curves.easeInOut)),
             child: child,
           );
         },
@@ -289,10 +285,10 @@ class _SavePanelState extends State<SavePanel> {
   }
 
   Future<void> _onSaveOrSharePic([bool isShare = false]) async {
-    if (!isShare && PlatformUtils.isMobile) {
-      if (mounted && !await ImageUtils.checkPermissionDependOnSdkInt(context)) {
-        return;
-      }
+    if (!isShare &&
+        PlatformUtils.isMobile &&
+        !await ImageUtils.checkPermissionDependOnSdkInt()) {
+      return;
     }
     SmartDialog.showLoading();
     try {
@@ -411,13 +407,16 @@ class _SavePanelState extends State<SavePanel> {
                               child: Row(
                                 children: [
                                   NetworkImgLayer(
-                                    radius: 6,
                                     src: cover!,
                                     height: coverSize,
                                     width: coverType == _CoverType.def16_9
-                                        ? coverSize * 16 / 9
+                                        ? coverSize *
+                                              StyleString.aspectRatio16x9
                                         : coverSize,
                                     quality: 100,
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(6),
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -533,6 +532,7 @@ class _SavePanelState extends State<SavePanel> {
                                       child: Image.asset(
                                         'assets/images/logo/logo_2.png',
                                         width: 100,
+                                        cacheWidth: 100.cacheSize(context),
                                         color:
                                             theme.colorScheme.onSurfaceVariant,
                                       ),

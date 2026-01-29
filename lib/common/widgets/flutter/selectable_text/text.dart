@@ -1,5 +1,7 @@
+import 'package:PiliPlus/common/widgets/flutter/selectable_text/selectable_text.dart';
+import 'package:PiliPlus/common/widgets/flutter/selectable_text/selection_area.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide SelectableText, SelectionArea;
 
 Widget selectableText(
   String text, {
@@ -16,6 +18,7 @@ Widget selectableText(
   return SelectableText(
     style: style,
     text,
+    scrollPhysics: const NeverScrollableScrollPhysics(),
   );
 }
 
@@ -34,5 +37,6 @@ Widget selectableRichText(
   return SelectableText.rich(
     style: style,
     textSpan,
+    scrollPhysics: const NeverScrollableScrollPhysics(),
   );
 }

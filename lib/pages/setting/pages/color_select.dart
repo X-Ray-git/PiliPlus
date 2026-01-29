@@ -38,9 +38,8 @@ class Item {
 }
 
 class _ColorSelectPageState extends State<ColorSelectPage> {
-  final ctr = Get.put(ColorSelectController());
-  FlexSchemeVariant _dynamicSchemeVariant =
-      FlexSchemeVariant.values[Pref.schemeVariant];
+  final ctr = Get.put(_ColorSelectController());
+  FlexSchemeVariant _dynamicSchemeVariant = Pref.schemeVariant;
 
   @override
   Widget build(BuildContext context) {
@@ -62,13 +61,11 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
             onTap: () async {
               final result = await showDialog<ThemeType>(
                 context: context,
-                builder: (context) {
-                  return SelectDialog<ThemeType>(
-                    title: '主题模式',
-                    value: ctr.themeType.value,
-                    values: ThemeType.values.map((e) => (e, e.desc)).toList(),
-                  );
-                },
+                builder: (context) => SelectDialog<ThemeType>(
+                  title: '主题模式',
+                  value: ctr.themeType.value,
+                  values: ThemeType.values.map((e) => (e, e.desc)).toList(),
+                ),
               );
               if (result != null) {
                 try {
@@ -271,10 +268,9 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
   }
 }
 
-class ColorSelectController extends GetxController {
+class _ColorSelectController extends GetxController {
   final RxBool dynamicColor = Pref.dynamicColor.obs;
   final RxInt currentColor = Pref.customColor.obs;
-  final RxDouble currentTextScale = Pref.defaultTextScale.obs;
   final Rx<ThemeType> themeType = Pref.themeType.obs;
 
   Box get setting => GStorage.setting;

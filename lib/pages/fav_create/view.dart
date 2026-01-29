@@ -154,11 +154,11 @@ class _CreateFavPageState extends State<CreateFavPage> {
           dir: 'cover',
         ).then((res) {
           if (context.mounted) {
-            if (res['status']) {
-              _cover = res['data']['location'];
+            if (res case Success(:final response)) {
+              _cover = response['location'];
               (context as Element).markNeedsBuild();
             } else {
-              SmartDialog.showToast(res['msg']);
+              res.toast();
             }
           }
           if (PlatformUtils.isMobile) {
@@ -174,9 +174,11 @@ class _CreateFavPageState extends State<CreateFavPage> {
   final leadingStyle = const TextStyle(fontSize: 14);
 
   Widget _buildBody(ThemeData theme) => SingleChildScrollView(
+    padding: .only(bottom: MediaQuery.viewPaddingOf(context).bottom + 25),
     child: Column(
+      spacing: 12,
       children: [
-        if (_attr == null || !FavUtils.isDefaultFav(_attr!)) ...[
+        if (_attr == null || !FavUtils.isDefaultFav(_attr!))
           Builder(
             builder: (context) {
               return ListTile(
@@ -190,40 +192,38 @@ class _CreateFavPageState extends State<CreateFavPage> {
                       if (_cover?.isNotEmpty == true) {
                         showDialog(
                           context: context,
-                          builder: (_) {
-                            return AlertDialog(
-                              clipBehavior: Clip.hardEdge,
-                              contentPadding: const .symmetric(vertical: 12),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    dense: true,
-                                    onTap: () {
-                                      Get.back();
-                                      _pickImg(context, theme);
-                                    },
-                                    title: const Text(
-                                      '替换封面',
-                                      style: TextStyle(fontSize: 14),
-                                    ),
+                          builder: (_) => AlertDialog(
+                            clipBehavior: Clip.hardEdge,
+                            contentPadding: const .symmetric(vertical: 12),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  dense: true,
+                                  onTap: () {
+                                    Get.back();
+                                    _pickImg(context, theme);
+                                  },
+                                  title: const Text(
+                                    '替换封面',
+                                    style: TextStyle(fontSize: 14),
                                   ),
-                                  ListTile(
-                                    dense: true,
-                                    onTap: () {
-                                      Get.back();
-                                      _cover = null;
-                                      (context as Element).markNeedsBuild();
-                                    },
-                                    title: const Text(
-                                      '移除封面',
-                                      style: TextStyle(fontSize: 14),
-                                    ),
+                                ),
+                                ListTile(
+                                  dense: true,
+                                  onTap: () {
+                                    Get.back();
+                                    _cover = null;
+                                    (context as Element).markNeedsBuild();
+                                  },
+                                  title: const Text(
+                                    '移除封面',
+                                    style: TextStyle(fontSize: 14),
                                   ),
-                                ],
-                              ),
-                            );
-                          },
+                                ),
+                              ],
+                            ),
+                          ),
                         );
                       } else {
                         _pickImg(context, theme);
@@ -246,7 +246,9 @@ class _CreateFavPageState extends State<CreateFavPage> {
                           src: _cover,
                           height: 55,
                           width: 88,
-                          radius: 6,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(6),
+                          ),
                         ),
                       ),
                     Icon(
@@ -258,8 +260,6 @@ class _CreateFavPageState extends State<CreateFavPage> {
               );
             },
           ),
-          const SizedBox(height: 16),
-        ],
         ListTile(
           tileColor: theme.colorScheme.onInverseSurface,
           title: Row(
@@ -316,8 +316,7 @@ class _CreateFavPageState extends State<CreateFavPage> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        if (_attr == null || !FavUtils.isDefaultFav(_attr!)) ...[
+        if (_attr == null || !FavUtils.isDefaultFav(_attr!))
           ListTile(
             tileColor: theme.colorScheme.onInverseSurface,
             title: Row(
@@ -360,8 +359,6 @@ class _CreateFavPageState extends State<CreateFavPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-        ],
         Builder(
           builder: (context) {
             void onTap() {
@@ -387,7 +384,6 @@ class _CreateFavPageState extends State<CreateFavPage> {
             );
           },
         ),
-        const SizedBox(height: 16),
       ],
     ),
   );

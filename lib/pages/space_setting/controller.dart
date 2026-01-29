@@ -28,14 +28,13 @@ class SpaceSettingController
       UserHttp.spaceSetting();
 
   Future<void> onMod() async {
-    if ((hasMod ?? false) && loadingState.value.isSuccess) {
-      Privacy? data = loadingState.value.data;
-      if (data != null) {
+    if (hasMod ?? false) {
+      if (loadingState.value case Success(:final response?)) {
         final res = await UserHttp.spaceSettingMod(
           {
-            for (final e in data.list1) e.key: e.value,
-            for (final e in data.list2) e.key: e.value,
-            for (final e in data.list3) e.key: e.value,
+            for (final e in response.list1) e.key: e.value,
+            for (final e in response.list2) e.key: e.value,
+            for (final e in response.list3) e.key: e.value,
           },
         );
         if (!res.isSuccess) {

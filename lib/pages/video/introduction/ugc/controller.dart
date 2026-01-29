@@ -13,7 +13,6 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models_new/member_card_info/data.dart';
 import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
-import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/episode.dart';
 import 'package:PiliPlus/models_new/video/video_detail/page.dart';
 import 'package:PiliPlus/models_new/video/video_detail/section.dart';
@@ -29,7 +28,6 @@ import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/global_data.dart';
@@ -90,30 +88,33 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   Future<void> queryVideoIntro() async {
     queryVideoTags();
     final res = await VideoHttp.videoIntro(bvid: bvid);
-    if (res.isSuccess) {
-      VideoDetailData data = res.data;
-      videoPlayerServiceHandler?.onVideoDetailChange(data, cid.value, heroTag);
-      if (videoDetail.value.ugcSeason?.id == data.ugcSeason?.id) {
+    if (res case Success(:final response)) {
+      videoPlayerServiceHandler?.onVideoDetailChange(
+        response,
+        cid.value,
+        heroTag,
+      );
+      if (videoDetail.value.ugcSeason?.id == response.ugcSeason?.id) {
         // keep reversed season
-        data.ugcSeason = videoDetail.value.ugcSeason;
+        response.ugcSeason = videoDetail.value.ugcSeason;
       }
-      if (videoDetail.value.cid == data.cid) {
+      if (videoDetail.value.cid == response.cid) {
         // keep reversed pages
-        data
+        response
           ..pages = videoDetail.value.pages
           ..isPageReversed = videoDetail.value.isPageReversed;
       }
-      videoDetail.value = data;
+      videoDetail.value = response;
       try {
         if (videoDetailCtr.cover.value.isEmpty ||
             (videoDetailCtr.videoUrl.isNullOrEmpty &&
                 !videoDetailCtr.isQuerying)) {
-          videoDetailCtr.cover.value = data.pic ?? '';
+          videoDetailCtr.cover.value = response.pic ?? '';
         }
         if (videoDetailCtr.showReply) {
           try {
             Get.find<VideoReplyController>(tag: heroTag).count.value =
-                data.stat?.reply ?? 0;
+                response.stat?.reply ?? 0;
           } catch (_) {}
         }
       } catch (_) {}
@@ -121,7 +122,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       if (pages != null && pages.isNotEmpty && cid.value == 0) {
         cid.value = pages.first.cid!;
       }
-      queryUserStat(data.staff);
+      queryUserStat(response.staff);
     } else {
       res.toast();
       status.value = false;
@@ -136,27 +137,21 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   // 获取up主粉丝数
   Future<void> queryUserStat(List<Staff>? staff) async {
     if (staff != null && staff.isNotEmpty) {
-      Request()
-          .get(
-            Api.relations,
-            queryParameters: {'fids': staff.map((item) => item.mid).join(',')},
-          )
-          .then((res) {
-            if (res.data['code'] == 0) {
-              staffRelations.addAll({
-                'status': true,
-                if (res.data['data'] != null) ...res.data['data'],
-              });
-            }
-          });
+      final res = await Request().get(
+        Api.relations,
+        queryParameters: {'fids': staff.map((item) => item.mid).join(',')},
+      );
+      if (res.data['code'] == 0) {
+        staffRelations.addAll({'status': true, ...?res.data['data']});
+      }
     } else {
       final mid = videoDetail.value.owner?.mid;
       if (mid == null) {
         return;
       }
-      final result = await MemberHttp.memberCardInfo(mid: mid);
-      if (result.isSuccess) {
-        userStat.value = result.data;
+      final res = await MemberHttp.memberCardInfo(mid: mid);
+      if (res case Success(:final response)) {
+        userStat.value = response;
       }
     }
   }
@@ -247,11 +242,11 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       SmartDialog.showToast('账号未登录');
       return;
     }
-    final result = await VideoHttp.dislikeVideo(
+    final res = await VideoHttp.dislikeVideo(
       bvid: bvid,
       type: !hasDislike.value,
     );
-    if (result.isSuccess) {
+    if (res.isSuccess) {
       if (!hasDislike.value) {
         SmartDialog.showToast('点踩成功');
         hasDislike.value = true;
@@ -264,7 +259,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         hasDislike.value = false;
       }
     } else {
-      result.toast();
+      res.toast();
     }
   }
 
@@ -303,107 +298,106 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   // 分享视频
   @override
   void actionShareVideo(BuildContext context) {
+    final videoDetail = this.videoDetail.value;
+    String videoUrl =
+        '${HttpString.baseUrl}/video/$bvid${videoDetailCtr.playedTimePos}';
     showDialog(
       context: context,
-      builder: (_) {
-        final videoDetail = this.videoDetail.value;
-        String videoUrl = '${HttpString.baseUrl}/video/$bvid';
-        return AlertDialog(
-          clipBehavior: Clip.hardEdge,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                dense: true,
-                title: const Text(
-                  '复制链接',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Get.back();
-                  Utils.copyText(videoUrl);
-                },
+      builder: (_) => AlertDialog(
+        clipBehavior: Clip.hardEdge,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              dense: true,
+              title: const Text(
+                '复制链接',
+                style: TextStyle(fontSize: 14),
               ),
-              ListTile(
-                dense: true,
-                title: const Text(
-                  '其它app打开',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Get.back();
-                  PageUtils.launchURL(videoUrl);
-                },
+              onTap: () {
+                Get.back();
+                Utils.copyText(videoUrl);
+              },
+            ),
+            ListTile(
+              dense: true,
+              title: const Text(
+                '其它app打开',
+                style: TextStyle(fontSize: 14),
               ),
-              if (PlatformUtils.isMobile)
-                ListTile(
-                  dense: true,
-                  title: const Text(
-                    '分享视频',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  onTap: () {
-                    Get.back();
-                    Utils.shareText(
-                      '${videoDetail.title} '
-                      'UP主: ${videoDetail.owner!.name!}'
-                      ' - $videoUrl',
-                    );
-                  },
-                ),
+              onTap: () {
+                Get.back();
+                PageUtils.launchURL(videoUrl);
+              },
+            ),
+            if (PlatformUtils.isMobile)
               ListTile(
                 dense: true,
                 title: const Text(
-                  '分享至动态',
+                  '分享视频',
                   style: TextStyle(fontSize: 14),
                 ),
                 onTap: () {
                   Get.back();
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    builder: (context) => RepostPanel(
-                      rid: videoDetail.aid,
-                      dynType: 8,
-                      pic: videoDetail.pic,
-                      title: videoDetail.title,
-                      uname: videoDetail.owner?.name,
-                    ),
+                  Utils.shareText(
+                    '${videoDetail.title} '
+                    'UP主: ${videoDetail.owner!.name!}'
+                    ' - $videoUrl',
                   );
                 },
               ),
-              ListTile(
-                dense: true,
-                title: const Text(
-                  '分享至消息',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Get.back();
-                  try {
-                    PageUtils.pmShare(
-                      context,
-                      content: {
-                        "id": videoDetail.aid!.toString(),
-                        "title": videoDetail.title!,
-                        "headline": videoDetail.title!,
-                        "source": 5,
-                        "thumb": videoDetail.pic!,
-                        "author": videoDetail.owner!.name!,
-                        "author_id": videoDetail.owner!.mid!.toString(),
-                      },
-                    );
-                  } catch (e) {
-                    SmartDialog.showToast(e.toString());
-                  }
-                },
+            ListTile(
+              dense: true,
+              title: const Text(
+                '分享至动态',
+                style: TextStyle(fontSize: 14),
               ),
-            ],
-          ),
-        );
-      },
+              onTap: () {
+                Get.back();
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (context) => RepostPanel(
+                    rid: videoDetail.aid,
+                    dynType: 8,
+                    pic: videoDetail.pic,
+                    title: videoDetail.title,
+                    uname: videoDetail.owner?.name,
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              dense: true,
+              title: const Text(
+                '分享至消息',
+                style: TextStyle(fontSize: 14),
+              ),
+              onTap: () {
+                Get.back();
+                try {
+                  PageUtils.pmShare(
+                    context,
+                    content: {
+                      "id": videoDetail.aid!.toString(),
+                      "title": videoDetail.title!,
+                      "headline": videoDetail.title!,
+                      "source": 5,
+                      "thumb": videoDetail.pic!,
+                      "author": videoDetail.owner!.name!,
+                      "author_id": videoDetail.owner!.mid!.toString(),
+                    },
+                  );
+                } catch (e) {
+                  SmartDialog.showToast(e.toString());
+                }
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -413,11 +407,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     if (videoDetail.owner == null || videoDetail.staff?.isNotEmpty == true) {
       return;
     }
-    final result = await UserHttp.hasFollow(videoDetail.owner!.mid!);
-    if (result['status']) {
-      Map data = result['data'];
-      if (data['special'] == 1) data['attribute'] = -10;
-      followStatus.value = data;
+    final res = await UserHttp.hasFollow(videoDetail.owner!.mid!);
+    if (res case Success(:final response)) {
+      if (response['special'] == 1) response['attribute'] = -10;
+      followStatus.value = response;
     }
   }
 
@@ -727,25 +720,24 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       return false;
     }
 
-    if (relatedCtr.loadingState.value is! Success) {
-      return false;
+    if (relatedCtr.loadingState.value case Success(:final response)) {
+      final firstItem = response?.firstOrNull;
+      if (firstItem == null) {
+        SmartDialog.showToast('暂无相关视频，停止连播');
+        return false;
+      }
+      onChangeEpisode(
+        BaseEpisodeItem(
+          aid: firstItem.aid,
+          bvid: firstItem.bvid,
+          cid: firstItem.cid,
+          cover: firstItem.cover,
+        ),
+      );
+      return true;
     }
 
-    if (relatedCtr.loadingState.value.data.isNullOrEmpty) {
-      SmartDialog.showToast('暂无相关视频，停止连播');
-      return false;
-    }
-
-    final firstItem = relatedCtr.loadingState.value.data!.first;
-    onChangeEpisode(
-      BaseEpisodeItem(
-        aid: firstItem.aid,
-        bvid: firstItem.bvid,
-        cid: firstItem.cid,
-        cover: firstItem.cover,
-      ),
-    );
-    return true;
+    return false;
   }
 
   // ai总结

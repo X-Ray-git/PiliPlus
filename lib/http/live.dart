@@ -10,6 +10,7 @@ import 'package:PiliPlus/models/common/live/live_search_type.dart';
 import 'package:PiliPlus/models_new/live/live_area_list/area_item.dart';
 import 'package:PiliPlus/models_new/live/live_area_list/area_list.dart';
 import 'package:PiliPlus/models_new/live/live_contribution_rank/data.dart';
+import 'package:PiliPlus/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliPlus/models_new/live/live_dm_block/data.dart';
 import 'package:PiliPlus/models_new/live/live_dm_block/shield_info.dart';
 import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
@@ -37,10 +38,15 @@ abstract final class LiveHttp {
     required Object msg,
     Object? dmType,
     Object? emoticonOptions,
+    int replyMid = 0,
+    String replayDmid = '',
   }) async {
     String csrf = Accounts.main.csrf;
     final res = await Request().post(
       Api.sendLiveMsg,
+      queryParameters: await WbiSign.makSign({
+        'web_location': 444.8,
+      }),
       data: FormData.fromMap({
         'bubble': 0,
         'msg': msg,
@@ -52,10 +58,10 @@ abstract final class LiveHttp {
         else ...{
           'room_type': 0,
           'jumpfrom': 0,
-          'reply_mid': 0,
+          'reply_mid': replyMid,
           'reply_attr': 0,
-          'replay_dmid': '',
-          'statistics': Constants.statistics,
+          'replay_dmid': replayDmid,
+          'statistics': '{"appId":100,"platform":5}',
           'reply_type': 0,
           'reply_uname': '',
         },
@@ -117,7 +123,9 @@ abstract final class LiveHttp {
     }
   }
 
-  static Future liveRoomDanmaPrefetch({required Object roomId}) async {
+  static Future<LoadingState<List<DanmakuMsg>?>> liveRoomDmPrefetch({
+    required Object roomId,
+  }) async {
     final res = await Request().get(
       Api.liveRoomDmPrefetch,
       queryParameters: {'roomid': roomId},
@@ -129,9 +137,17 @@ abstract final class LiveHttp {
       ),
     );
     if (res.data['code'] == 0) {
-      return {'status': true, 'data': res.data['data']?['room']};
+      try {
+        return Success(
+          (res.data['data']?['room'] as List?)
+              ?.map((e) => DanmakuMsg.fromPrefetch(e))
+              .toList(),
+        );
+      } catch (e) {
+        return Error(e.toString());
+      }
     } else {
-      return {'status': false, 'msg': res.data['message']};
+      return Error(res.data['message']);
     }
   }
 
@@ -686,6 +702,42 @@ abstract final class LiveHttp {
       } catch (e, s) {
         return Error('$e\n\n$s');
       }
+    } else {
+      return Error(res.data['message']);
+    }
+  }
+
+  static Future<LoadingState<Null>> superChatReport({
+    required int id,
+    required Object roomId,
+    required Object uid,
+    required String msg,
+    required String reason,
+    required int ts,
+    required String token,
+  }) async {
+    final csrf = Accounts.main.csrf;
+    final res = await Request().post(
+      Api.superChatReport,
+      data: {
+        'id': id,
+        'roomid': roomId,
+        'uid': uid,
+        'msg': msg,
+        'reason': reason,
+        'ts': ts,
+        'sign': '',
+        'reason_id': reason,
+        'token': token,
+        'id_str': id.toString(),
+        'csrf_token': csrf,
+        'csrf': csrf,
+        'visit_id': '',
+      },
+      options: Options(contentType: Headers.formUrlEncodedContentType),
+    );
+    if (res.data['code'] == 0) {
+      return const Success(null);
     } else {
       return Error(res.data['message']);
     }
