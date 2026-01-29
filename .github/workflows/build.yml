@@ -95,9 +95,18 @@ jobs:
                   if [ ! -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ]; then
                     echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
                     echo storeFile='key.jks' >> android/key.properties
-                    echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> android/key.properties
-                    echo keyAlias='${{ secrets.KEY_ALIAS }}' >> android/key.properties
-                    echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> android/key.properties
+                    
+                    STORE_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+                    if [ -z "$STORE_PASS" ]; then STORE_PASS="android"; fi
+                    echo "storePassword=$STORE_PASS" >> android/key.properties
+
+                    KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
+                    if [ -z "$KEY_ALIAS" ]; then KEY_ALIAS="androiddebugkey"; fi
+                    echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+
+                    KEY_PASS="${{ secrets.KEY_PASSWORD }}"
+                    if [ -z "$KEY_PASS" ]; then KEY_PASS="android"; fi
+                    echo "keyPassword=$KEY_PASS" >> android/key.properties
                   fi
 
             - name: Set and Extract version
