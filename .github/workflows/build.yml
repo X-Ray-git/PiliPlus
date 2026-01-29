@@ -9,6 +9,10 @@ on:
             - ready_for_review
         paths-ignore:
             - "**.md"
+    # Added trigger for tag pushes
+    push:
+        tags:
+            - "*"
     workflow_dispatch:
         inputs:
             build_android:
@@ -49,7 +53,8 @@ on:
 
 jobs:
     android:
-        if: ${{ github.event_name == 'pull_request' || github.event.inputs.build_android == 'true' }}
+        # Run on PR, Manual Trigger (if android selected), OR Tag Push
+        if: ${{ github.event_name == 'pull_request' || github.event.inputs.build_android == 'true' || startsWith(github.ref, 'refs/tags/') }}
         name: Release Android
         runs-on: ubuntu-latest
         permissions: write-all
@@ -84,7 +89,8 @@ jobs:
               continue-on-error: true
 
             - name: Write key
-              if: github.event_name == 'workflow_dispatch'
+              # Run on manual dispatch OR tag push
+              if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
               run: |
                   if [ ! -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ]; then
                     echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
@@ -110,11 +116,13 @@ jobs:
               shell: bash
 
             - name: Release
-              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+              # Run if manual dispatch with tag defined, OR if it's a tag push
+              if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') || startsWith(github.ref, 'refs/tags/') }}
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: ${{ github.event.inputs.tag }}
-                  name: ${{ github.event.inputs.tag }}
+                  # Use manual tag input OR the git tag that triggered the workflow
+                  tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+                  name: ${{ github.event.inputs.tag || github.ref_name }}
                   files: |
                       PiliPlus_android_*.apk
 
@@ -139,30 +147,4 @@ jobs:
                   path: |
                       PiliPlus_android_*_x86_64.apk
 
-    ios:
-        if: ${{ github.event_name == 'pull_request' || github.event.inputs.build_ios == 'true' }}
-        uses: ./.github/workflows/ios.yml
-        permissions: write-all
-        with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
-    mac:
-        if: ${{ github.event.inputs.build_mac == 'true' }}
-        uses: ./.github/workflows/mac.yml
-        permissions: write-all
-        with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
-
-    win_x64:
-        if: ${{ github.event_name == 'pull_request' || github.event.inputs.build_win_x64 == 'true' }}
-        uses: ./.github/workflows/win_x64.yml
-        permissions: write-all
-        with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
-
-    linux_x64:
-        if: ${{ github.event.inputs.build_linux_x64 == 'true' }}
-        uses: ./.github/workflows/linux_x64.yml
-        permissions: write-all
-        with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}

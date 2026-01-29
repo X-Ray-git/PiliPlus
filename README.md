@@ -2,6 +2,9 @@
     <img width="200" height="200" src="assets/images/logo/logo.png">
 </div>
 
+> [!NOTE]  
+> 本 Fork 版本主要针对 **Android** 平台进行了增强（如桌面快捷方式）。iOS/Desktop 平台虽理论上兼容，但部分特有功能可能不可用。
+
 
 
 <div align="center">
