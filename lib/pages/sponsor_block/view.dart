@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -17,8 +15,9 @@ import 'package:PiliPlus/utils/utils.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class SponsorBlockPage extends StatefulWidget {
@@ -32,7 +31,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
   final _url = 'https://github.com/hanydd/BilibiliSponsorBlock';
   final _textController = TextEditingController();
   double _blockLimit = Pref.blockLimit;
-  final List<Pair<SegmentType, SkipType>> _blockSettings = Pref.blockSettings;
+  final _blockSettings = Pref.blockSettings;
   final List<Color> _blockColor = Pref.blockColor;
   String _userId = Pref.blockUserID;
   bool _blockToast = Pref.blockToast;
@@ -98,20 +97,19 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                   onPressed: Get.back,
                   child: Text(
                     '取消',
-                    style: TextStyle(
-                      color: theme.colorScheme.outline,
-                    ),
+                    style: TextStyle(color: theme.colorScheme.outline),
                   ),
                 ),
                 TextButton(
                   onPressed: () {
-                    Get.back();
-                    _blockLimit = max(
-                      0.0,
-                      double.tryParse(_textController.text) ?? 0.0,
-                    );
-                    setting.put(SettingBoxKey.blockLimit, _blockLimit);
-                    (context as Element).markNeedsBuild();
+                    try {
+                      _blockLimit = double.parse(_textController.text);
+                      Get.back();
+                      setting.put(SettingBoxKey.blockLimit, _blockLimit);
+                      (context as Element).markNeedsBuild();
+                    } catch (e) {
+                      SmartDialog.showToast(e.toString());
+                    }
                   },
                   child: const Text('确定'),
                 ),

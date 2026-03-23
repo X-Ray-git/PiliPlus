@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/http/api.dart';
+import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/ua_type.dart';
 import 'package:PiliPlus/models/common/member/contribute_type.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/models/member/info.dart';
@@ -306,7 +306,7 @@ abstract final class MemberHttp {
         headers: {
           'origin': 'https://space.bilibili.com',
           'referer': 'https://space.bilibili.com/$mid/dynamic',
-          'user-agent': UaType.pc.ua,
+          'user-agent': BrowserUa.pc,
         },
       ),
     );
@@ -377,7 +377,7 @@ abstract final class MemberHttp {
       queryParameters: params,
       options: Options(
         headers: {
-          HttpHeaders.userAgentHeader: UaType.pc.ua,
+          HttpHeaders.userAgentHeader: BrowserUa.pc,
           HttpHeaders.refererHeader: '${HttpString.spaceBaseUrl}/$mid',
           'origin': HttpString.spaceBaseUrl,
         },
@@ -405,7 +405,7 @@ abstract final class MemberHttp {
       'offset': offset ?? '',
       'host_mid': mid,
       'timezone_offset': '-480',
-      'features': 'itemOpusStyle,listOnlyfans',
+      'features': Constants.dynFeatures,
       'platform': 'web',
       'web_location': '333.1387',
       'dm_img_list': '[]',
@@ -420,7 +420,7 @@ abstract final class MemberHttp {
       queryParameters: params,
       options: Options(
         headers: {
-          'user-agent': UaType.pc.ua,
+          'user-agent': BrowserUa.pc,
           'origin': 'https://space.bilibili.com',
           'referer': 'https://space.bilibili.com/$mid/dynamic',
         },
@@ -457,7 +457,7 @@ abstract final class MemberHttp {
         'page': pn,
         'offset': offset,
         'keyword': keyword,
-        'features': 'itemOpusStyle,listOnlyfans',
+        'features': Constants.dynFeatures,
         'web_location': 333.1387,
       },
     );
@@ -482,7 +482,7 @@ abstract final class MemberHttp {
     }
   }
 
-  static Future<LoadingState<Null>> specialAction({
+  static Future<LoadingState<void>> specialAction({
     int? fid,
     bool isAdd = true,
   }) async {
@@ -502,7 +502,7 @@ abstract final class MemberHttp {
   }
 
   // 设置分组
-  static Future<LoadingState<Null>> addUsers(String fids, String tagids) async {
+  static Future<LoadingState<void>> addUsers(String fids, String tagids) async {
     final res = await Request().post(
       Api.addUsers,
       queryParameters: {
@@ -555,7 +555,7 @@ abstract final class MemberHttp {
     }
   }
 
-  static Future<LoadingState<Null>> createFollowTag(Object tagName) async {
+  static Future<LoadingState<void>> createFollowTag(Object tagName) async {
     final res = await Request().post(
       Api.createFollowTag,
       queryParameters: {
@@ -575,7 +575,7 @@ abstract final class MemberHttp {
     }
   }
 
-  static Future<LoadingState<Null>> updateFollowTag(
+  static Future<LoadingState<void>> updateFollowTag(
     Object tagid,
     Object name,
   ) async {
@@ -599,7 +599,7 @@ abstract final class MemberHttp {
     }
   }
 
-  static Future<LoadingState<Null>> delFollowTag(Object tagid) async {
+  static Future<LoadingState<void>> delFollowTag(Object tagid) async {
     final res = await Request().post(
       Api.delFollowTag,
       queryParameters: {

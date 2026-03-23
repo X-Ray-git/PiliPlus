@@ -5,8 +5,8 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show touchSlopH;
-import 'package:PiliPlus/common/widgets/image/custom_grid_view.dart'
-    show CustomGridView, ImageModel;
+import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
+    show ImageGridView, ImageModel;
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/grpc/reply.dart';
 import 'package:PiliPlus/http/fav.dart';
@@ -24,7 +24,7 @@ import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/slide_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
@@ -42,7 +42,7 @@ import 'package:PiliPlus/utils/update.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RefreshIndicator;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -84,12 +84,14 @@ List<SettingsModel> get extraSettings => [
       ],
     ),
   ),
-  getPopupMenuModel(
+  PopupModel<SkipType>(
     title: '番剧片头/片尾跳过类型',
     leading: const Icon(MdiIcons.debugStepOver),
-    key: SettingBoxKey.pgcSkipType,
-    values: SkipType.values,
-    defaultIndex: SkipType.skipOnce.index,
+    value: () => Pref.pgcSkipType,
+    items: SkipType.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.pgcSkipType, value.index)
+        .whenComplete(setState),
   ),
   SwitchModel(
     title: '检查未读动态',
@@ -156,7 +158,7 @@ List<SettingsModel> get extraSettings => [
     leading: const Icon(Icons.photo_outlined),
     setKey: SettingBoxKey.horizontalPreview,
     defaultVal: false,
-    onChanged: (value) => CustomGridView.horizontalPreview = value,
+    onChanged: (value) => ImageGridView.horizontalPreview = value,
   ),
   NormalModel(
     title: '评论折叠行数',
@@ -295,7 +297,7 @@ List<SettingsModel> get extraSettings => [
     title: '超分辨率',
     leading: const Icon(Icons.stay_current_landscape_outlined),
     getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.title}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
+        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
     onTap: _showSuperResolutionDialog,
   ),
   const SwitchModel(
@@ -351,6 +353,13 @@ List<SettingsModel> get extraSettings => [
     leading: Icon(Icons.show_chart),
     setKey: SettingBoxKey.showDmChart,
     defaultVal: false,
+  ),
+  const SwitchModel(
+    title: '记录评论',
+    leading: Icon(Icons.message_outlined),
+    setKey: SettingBoxKey.saveReply,
+    defaultVal: true,
+    needReboot: true,
   ),
   const SwitchModel(
     title: '发评反诈',
@@ -466,7 +475,7 @@ List<SettingsModel> get extraSettings => [
     leading: const Icon(Icons.menu),
     setKey: SettingBoxKey.enableImgMenu,
     defaultVal: false,
-    onChanged: (value) => CustomGridView.enableImgMenu = value,
+    onChanged: (value) => ImageGridView.enableImgMenu = value,
   ),
   SwitchModel(
     setKey: SettingBoxKey.feedBackEnable,
@@ -700,9 +709,7 @@ Future<void> audioNormalization(
               onPressed: Get.back,
               child: Text(
                 '取消',
-                style: TextStyle(
-                  color: ColorScheme.of(context).outline,
-                ),
+                style: TextStyle(color: ColorScheme.of(context).outline),
               ),
             ),
             TextButton(
@@ -763,7 +770,7 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
           ListTile(
             onTap: () async {
               Get.back();
-              final path = await FilePicker.platform.getDirectoryPath();
+              final path = await FilePicker.getDirectoryPath();
               if (path == null || path == downloadPath) return;
               downloadPath = path;
               setState();
@@ -798,9 +805,7 @@ void _showDynDialog(BuildContext context) {
           onPressed: Get.back,
           child: Text(
             '取消',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            style: TextStyle(color: ColorScheme.of(context).outline),
           ),
         ),
         TextButton(
@@ -840,21 +845,20 @@ void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
           onPressed: Get.back,
           child: Text(
             '取消',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            style: TextStyle(color: ColorScheme.of(context).outline),
           ),
         ),
         TextButton(
           onPressed: () async {
-            Get.back();
-            int length = int.tryParse(replyLengthLimit) ?? 6;
-            ReplyItemGrpc.replyLengthLimit = length == 0 ? null : length;
-            await GStorage.setting.put(
-              SettingBoxKey.replyLengthLimit,
-              length,
-            );
-            setState();
+            try {
+              final val = int.parse(replyLengthLimit);
+              Get.back();
+              ReplyItemGrpc.replyLengthLimit = val == 0 ? null : val;
+              await GStorage.setting.put(SettingBoxKey.replyLengthLimit, val);
+              setState();
+            } catch (e) {
+              SmartDialog.showToast(e.toString());
+            }
           },
           child: const Text('确定'),
         ),
@@ -883,22 +887,22 @@ void _showDmHeightDialog(BuildContext context, VoidCallback setState) {
           onPressed: Get.back,
           child: Text(
             '取消',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            style: TextStyle(color: ColorScheme.of(context).outline),
           ),
         ),
         TextButton(
           onPressed: () async {
-            Get.back();
-            await GStorage.setting.put(
-              SettingBoxKey.danmakuLineHeight,
-              max(
+            try {
+              final val = max(
                 1.0,
-                double.tryParse(danmakuLineHeight)?.toPrecision(1) ?? 1.6,
-              ),
-            );
-            setState();
+                double.parse(danmakuLineHeight).toPrecision(1),
+              );
+              Get.back();
+              await GStorage.setting.put(SettingBoxKey.danmakuLineHeight, val);
+              setState();
+            } catch (e) {
+              SmartDialog.showToast(e.toString());
+            }
           },
           child: const Text('确定'),
         ),
@@ -927,9 +931,7 @@ void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
           onPressed: Get.back,
           child: Text(
             '取消',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            style: TextStyle(color: ColorScheme.of(context).outline),
           ),
         ),
         TextButton(
@@ -957,7 +959,7 @@ Future<void> _showRefreshDragDialog(
 ) async {
   final res = await showDialog<double>(
     context: context,
-    builder: (context) => SlideDialog(
+    builder: (context) => SliderDialog(
       title: '刷新滑动距离',
       min: 0.1,
       max: 0.5,
@@ -970,7 +972,6 @@ Future<void> _showRefreshDragDialog(
   if (res != null) {
     kDragContainerExtentPercentage = res;
     await GStorage.setting.put(SettingBoxKey.refreshDragPercentage, res);
-    Get.forceAppUpdate();
     setState();
   }
 }
@@ -981,7 +982,7 @@ Future<void> _showRefreshDialog(
 ) async {
   final res = await showDialog<double>(
     context: context,
-    builder: (context) => SlideDialog(
+    builder: (context) => SliderDialog(
       title: '刷新指示器高度',
       min: 10.0,
       max: 100.0,
@@ -992,8 +993,19 @@ Future<void> _showRefreshDialog(
   if (res != null) {
     displacement = res;
     await GStorage.setting.put(SettingBoxKey.refreshDisplacement, res);
-    Get.forceAppUpdate();
+    if (WidgetsBinding.instance.rootElement case final context?) {
+      context.visitChildElements(_visitor);
+    }
     setState();
+  }
+}
+
+void _visitor(Element context) {
+  if (!context.mounted) return;
+  if (context.widget is RefreshIndicator) {
+    context.markNeedsBuild();
+  } else {
+    context.visitChildren(_visitor);
   }
 }
 
@@ -1006,7 +1018,7 @@ Future<void> _showSuperResolutionDialog(
     builder: (context) => SelectDialog<SuperResolutionType>(
       title: '超分辨率',
       value: Pref.superResolutionType,
-      values: SuperResolutionType.values.map((e) => (e, e.title)).toList(),
+      values: SuperResolutionType.values.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {
@@ -1070,7 +1082,7 @@ Future<void> _showReplyCountDialog(
 ) async {
   final res = await showDialog<double>(
     context: context,
-    builder: (context) => SlideDialog(
+    builder: (context) => SliderDialog(
       title: '连接重试次数',
       min: 0,
       max: 8,
@@ -1092,7 +1104,7 @@ Future<void> _showReplyDelayDialog(
 ) async {
   final res = await showDialog<double>(
     context: context,
-    builder: (context) => SlideDialog(
+    builder: (context) => SliderDialog(
       title: '连接重试间隔',
       min: 0,
       max: 1000,
@@ -1118,7 +1130,7 @@ Future<void> _showReplySortDialog(
     builder: (context) => SelectDialog<ReplySortType>(
       title: '评论展示',
       value: Pref.replySortType,
-      values: ReplySortType.values.map((e) => (e, e.title)).toList(),
+      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
     ),
   );
   if (res != null) {
@@ -1210,9 +1222,7 @@ void _showProxyDialog(BuildContext context) {
           onPressed: Get.back,
           child: Text(
             '取消',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            style: TextStyle(color: ColorScheme.of(context).outline),
           ),
         ),
         TextButton(
@@ -1254,20 +1264,22 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
           onPressed: Get.back,
           child: Text(
             '取消',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            style: TextStyle(color: ColorScheme.of(context).outline),
           ),
         ),
         TextButton(
           onPressed: () async {
-            Get.back();
-            num value = num.tryParse(valueStr) ?? 0;
-            await GStorage.setting.put(
-              SettingBoxKey.maxCacheSize,
-              value * 1024 * 1024,
-            );
-            setState();
+            try {
+              final val = num.parse(valueStr);
+              Get.back();
+              await GStorage.setting.put(
+                SettingBoxKey.maxCacheSize,
+                val * 1024 * 1024,
+              );
+              setState();
+            } catch (e) {
+              SmartDialog.showToast(e.toString());
+            }
           },
           child: const Text('确定'),
         ),

@@ -13,7 +13,6 @@ import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models_new/fav/fav_pgc/list.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_index_result/list.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_timeline/result.dart';
-import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/pgc/controller.dart';
 import 'package:PiliPlus/pages/pgc/widgets/pgc_card_v.dart';
 import 'package:PiliPlus/pages/pgc/widgets/pgc_card_v_timeline.dart';
@@ -37,13 +36,17 @@ class PgcPage extends StatefulWidget {
   State<PgcPage> createState() => _PgcPageState();
 }
 
-class _PgcPageState extends CommonPageState<PgcPage, PgcController>
-    with AutomaticKeepAliveClientMixin {
+class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
+  late final PgcController controller;
+
   @override
-  late PgcController controller = Get.put(
-    PgcController(tabType: widget.tabType),
-    tag: widget.tabType.name,
-  );
+  void initState() {
+    controller = Get.put(
+      PgcController(tabType: widget.tabType),
+      tag: widget.tabType.name,
+    );
+    super.initState();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -52,28 +55,26 @@ class _PgcPageState extends CommonPageState<PgcPage, PgcController>
   Widget build(BuildContext context) {
     super.build(context);
     final ThemeData theme = Theme.of(context);
-    return onBuild(
-      refreshIndicator(
-        onRefresh: controller.onRefresh,
-        child: CustomScrollView(
-          controller: controller.scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            _buildFollow(theme),
-            if (controller.showPgcTimeline)
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height:
-                      Grid.smallCardWidth / 2 / 0.75 +
-                      MediaQuery.textScalerOf(context).scale(96),
-                  child: Obx(
-                    () => _buildTimeline(theme, controller.timelineState.value),
-                  ),
+    return refreshIndicator(
+      onRefresh: controller.onRefresh,
+      child: CustomScrollView(
+        controller: controller.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          _buildFollow(theme),
+          if (controller.showPgcTimeline)
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height:
+                    Grid.smallCardWidth / 2 / 0.75 +
+                    MediaQuery.textScalerOf(context).scale(96),
+                child: Obx(
+                  () => _buildTimeline(theme, controller.timelineState.value),
                 ),
               ),
-            ..._buildRcmd(theme),
-          ],
-        ),
+            ),
+          ..._buildRcmd(theme),
+        ],
       ),
     );
   }
@@ -82,7 +83,7 @@ class _PgcPageState extends CommonPageState<PgcPage, PgcController>
     ThemeData theme,
     LoadingState<List<TimelineResult>?> loadingState,
   ) => switch (loadingState) {
-    Loading() => loadingWidget,
+    Loading() => m3eLoading,
     Success(:final response) =>
       response != null && response.isNotEmpty
           ? Builder(
@@ -396,7 +397,7 @@ class _PgcPageState extends CommonPageState<PgcPage, PgcController>
 
   Widget _buildFollowBody(LoadingState<List<FavPgcItemModel>?> loadingState) {
     return switch (loadingState) {
-      Loading() => loadingWidget,
+      Loading() => m3eLoading,
       Success(:final response) =>
         response != null && response.isNotEmpty
             ? ListView.builder(
@@ -416,9 +417,7 @@ class _PgcPageState extends CommonPageState<PgcPage, PgcController>
                           ? StyleString.safeSpace
                           : 0,
                     ),
-                    child: PgcCardV(
-                      item: response[index],
-                    ),
+                    child: PgcCardV(item: response[index]),
                   );
                 },
               )

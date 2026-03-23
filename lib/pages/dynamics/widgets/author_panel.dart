@@ -27,7 +27,7 @@ import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart' hide InkWell;
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -296,9 +296,7 @@ class AuthorPanel extends StatelessWidget {
                       height: 3,
                       decoration: BoxDecoration(
                         color: theme.colorScheme.outline,
-                        borderRadius: const BorderRadius.all(
-                          Radius.circular(3),
-                        ),
+                        borderRadius: const .all(.circular(1.5)),
                       ),
                     ),
                   ),

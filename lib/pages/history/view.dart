@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/appbar/appbar.dart';
 import 'package:PiliPlus/common/widgets/flutter/page/tabs.dart';
+import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
@@ -26,10 +27,16 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage>
     with AutomaticKeepAliveClientMixin, GridMixin {
-  late final _historyController = Get.put(
-    HistoryController(widget.type),
-    tag: widget.type ?? 'all',
-  );
+  late final HistoryController _historyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyController = Get.put(
+      HistoryController(widget.type),
+      tag: widget.type ?? 'all',
+    );
+  }
 
   HistoryController currCtr([int? index]) {
     try {
@@ -78,7 +85,7 @@ class _HistoryPageState extends State<HistoryPage>
       () {
         final enableMultiSelect =
             _historyController.baseCtr.enableMultiSelect.value;
-        return PopScope(
+        return popScope(
           canPop: !enableMultiSelect,
           onPopInvokedWithResult: (didPop, result) {
             if (enableMultiSelect) {
@@ -130,12 +137,12 @@ class _HistoryPageState extends State<HistoryPage>
                       child: TabBarView<CustomHorizontalDragGestureRecognizer>(
                         physics: enableMultiSelect
                             ? const NeverScrollableScrollPhysics()
-                            : const CustomTabBarViewScrollPhysics(),
+                            : clampingScrollPhysics,
                         controller: _historyController.tabController,
                         horizontalDragGestureRecognizer:
-                            CustomHorizontalDragGestureRecognizer(),
+                            CustomHorizontalDragGestureRecognizer.new,
                         children: [
-                          KeepAliveWrapper(builder: (context) => child),
+                          KeepAliveWrapper(child: child),
                           ..._historyController.tabs.map(
                             (item) => HistoryPage(type: item.type),
                           ),

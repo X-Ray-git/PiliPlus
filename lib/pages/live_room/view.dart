@@ -6,10 +6,12 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/page/page_view.dart';
+import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
+import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models/common/live/live_contribution_rank_type.dart';
@@ -28,7 +30,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
-import 'package:PiliPlus/plugin/pl_player/view.dart';
+import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
@@ -56,7 +58,7 @@ class LiveRoomPage extends StatefulWidget {
 }
 
 class _LiveRoomPageState extends State<LiveRoomPage>
-    with WidgetsBindingObserver, RouteAware {
+    with WidgetsBindingObserver, RouteAware, RouteAwareMixin {
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
@@ -75,20 +77,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       LiveRoomController(heroTag),
       tag: heroTag,
     );
-    plPlayerController = _liveRoomController.plPlayerController;
-    PlPlayerController.setPlayCallBack(plPlayerController.play);
-    plPlayerController
-      ..autoEnterFullscreen()
+    plPlayerController = _liveRoomController.plPlayerController
       ..addStatusLister(playerListener);
+    PlPlayerController.setPlayCallBack(plPlayerController.play);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    PageUtils.routeObserver.subscribe(
-      this,
-      ModalRoute.of(context)! as PageRoute,
-    );
     padding = MediaQuery.viewPaddingOf(context);
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
@@ -104,7 +100,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ..danmakuController = _liveRoomController.danmakuController;
     PlPlayerController.setPlayCallBack(plPlayerController.play);
     _liveRoomController.startLiveTimer();
-    if (plPlayerController.playerStatus.playing &&
+    if (plPlayerController.playerStatus.isPlaying &&
         plPlayerController.cid == null) {
       _liveRoomController
         ..danmakuController?.resume()
@@ -132,12 +128,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ..danmakuController?.pause()
       ..cancelLiveTimer()
       ..closeLiveMsg()
-      ..isPlaying = plPlayerController.playerStatus.playing;
+      ..isPlaying = plPlayerController.playerStatus.isPlaying;
     super.didPushNext();
   }
 
-  void playerListener(PlayerStatus? status) {
-    if (status == PlayerStatus.playing) {
+  void playerListener(PlayerStatus status) {
+    if (status.isPlaying) {
       _liveRoomController
         ..danmakuController?.resume()
         ..startLiveTimer()
@@ -161,7 +157,6 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController
       ..removeStatusLister(playerListener)
       ..dispose();
-    PageUtils.routeObserver.unsubscribe(this);
     for (final e in LiveContributionRankType.values) {
       Get.delete<ContributionRankController>(
         tag: '${_liveRoomController.roomId}${e.name}',
@@ -215,6 +210,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       child = PlayerFocus(
         plPlayerController: plPlayerController,
         onSendDanmaku: _liveRoomController.onSendDanmaku,
+        onRefresh: _liveRoomController.queryLiveUrl,
         child: child,
       );
     }
@@ -353,7 +349,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ],
       );
     }
-    return PopScope(
+    return popScope(
       canPop: !isFullScreen && !plPlayerController.isDesktopPip,
       onPopInvokedWithResult: plPlayerController.onPopInvokedWithResult,
       child: player,
@@ -713,7 +709,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ..savedDanmaku = [
           RichTextItem.fromStart(
             '@${item.name} ',
-            rawText: item.uid.toString(),
+            rawText: item.extra.mid.toString(),
             type: .at,
             id: item.extra.id.toString(),
           ),
@@ -726,15 +722,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           ? PageView<CustomHorizontalDragGestureRecognizer>(
               key: pageKey,
               controller: _liveRoomController.pageController,
-              physics: const CustomTabBarViewScrollPhysics(
-                parent: ClampingScrollPhysics(),
-              ),
+              physics: clampingScrollPhysics,
               onPageChanged: (value) =>
                   _liveRoomController.pageIndex.value = value,
               horizontalDragGestureRecognizer:
-                  CustomHorizontalDragGestureRecognizer(),
+                  CustomHorizontalDragGestureRecognizer.new,
               children: [
-                KeepAliveWrapper(builder: (context) => chat()),
+                KeepAliveWrapper(child: chat()),
                 SuperChatPanel(
                   key: scKey,
                   controller: _liveRoomController,
@@ -996,12 +990,15 @@ class _RenderBorderIndicator extends RenderBox {
     final size = this.size;
     final canvas = context.canvas;
     final width = size.width / 2;
-    if (!_isLeft) {
-      canvas.translate(width, 0);
-    }
+
     BoxBorder.paintNonUniformBorder(
       canvas,
-      Rect.fromLTRB(0, 0, width, size.height),
+      Rect.fromLTWH(
+        offset.dx + (_isLeft ? 0 : width),
+        offset.dy,
+        width,
+        size.height,
+      ),
       borderRadius: BorderRadius.only(
         topLeft: _isLeft ? _radius : .zero,
         topRight: _isLeft ? .zero : _radius,
@@ -1011,9 +1008,6 @@ class _RenderBorderIndicator extends RenderBox {
       color: Colors.white38,
     );
   }
-
-  @override
-  bool get isRepaintBoundary => true;
 }
 
 class LiveDanmaku extends StatefulWidget {

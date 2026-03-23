@@ -17,10 +17,12 @@ class LiveAreaChildPage extends StatefulWidget {
     super.key,
     required this.areaId,
     required this.parentAreaId,
+    required this.showFirstFrame,
   });
 
   final dynamic areaId;
   final dynamic parentAreaId;
+  final bool showFirstFrame;
 
   @override
   State<LiveAreaChildPage> createState() => _LiveAreaChildPageState();
@@ -28,10 +30,16 @@ class LiveAreaChildPage extends StatefulWidget {
 
 class _LiveAreaChildPageState extends State<LiveAreaChildPage>
     with AutomaticKeepAliveClientMixin {
-  late final _controller = Get.put(
-    LiveAreaChildController(widget.areaId, widget.parentAreaId),
-    tag: '${widget.areaId}${widget.parentAreaId}',
-  );
+  late final LiveAreaChildController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = Get.put(
+      LiveAreaChildController(widget.areaId, widget.parentAreaId),
+      tag: '${widget.areaId}${widget.parentAreaId}',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +122,10 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
                     if (index == response.length - 1) {
                       _controller.onLoadMore();
                     }
-                    return LiveCardVApp(item: response[index]);
+                    return LiveCardVApp(
+                      item: response[index],
+                      showFirstFrame: widget.showFirstFrame,
+                    );
                   },
                   itemCount: response.length,
                 )
