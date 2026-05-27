@@ -1,22 +1,23 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/avatars.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
-import 'package:PiliPlus/common/widgets/flutter/layout_builder.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/dynamics.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
+import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/models/dynamics/vote_model.dart';
 import 'package:PiliPlus/models_new/followee_votes/vote.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
-import 'package:flutter/material.dart' hide LayoutBuilder;
+import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class VotePanel extends StatefulWidget {
@@ -46,7 +47,7 @@ class _VotePanelState extends State<VotePanel> {
   late bool _showPercentage = !_enabled;
   late final _maxCnt = _voteInfo.choiceCnt ?? _voteInfo.options.length;
   final isLogin = Accounts.main.isLogin;
-  late final Rxn<List<FolloweeVote>> followeeVote = Rxn<List<FolloweeVote>>();
+  late final followeeVote = Rxn<List<FolloweeVote>>();
 
   @override
   void initState() {
@@ -312,6 +313,12 @@ class _VotePanelState extends State<VotePanel> {
   );
 
   Widget _buildPicOptions(int index, ColorScheme colorScheme) {
+    void onLongPress() => PageUtils.imageView(
+      initialPage: index,
+      imgList: _voteInfo.options
+          .map((e) => SourceModel(url: e.imgUrl!))
+          .toList(),
+    );
     return Card(
       clipBehavior: Clip.hardEdge,
       shape: const RoundedRectangleBorder(
@@ -325,6 +332,8 @@ class _VotePanelState extends State<VotePanel> {
             onTap: !_enabled
                 ? null
                 : () => _onSelected(context, !selected, opt.optIdx!),
+            onLongPress: PlatformUtils.isMobile ? onLongPress : null,
+            onSecondaryTap: PlatformUtils.isDesktop ? onLongPress : null,
             child: Column(
               spacing: 5,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -541,18 +550,15 @@ Future<void> showVoteDialog(
 ]) async {
   final voteInfo = await DynamicsHttp.voteInfo(voteId);
   if (context.mounted) {
-    if (voteInfo.isSuccess) {
+    if (voteInfo case Success(:final response)) {
       showDialog(
         context: context,
         builder: (context) => Dialog(
-          constraints: const BoxConstraints(
-            minWidth: 280,
-            maxWidth: 625,
-          ),
+          constraints: const BoxConstraints(minWidth: 280, maxWidth: 625),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const .all(24),
             child: VotePanel(
-              voteInfo: voteInfo.data,
+              voteInfo: response,
               onVote: (votes, anonymous) => DynamicsHttp.doVote(
                 voteId: voteId,
                 votes: votes.toList(),

@@ -18,7 +18,7 @@
 import 'dart:collection' show HashSet;
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/constants.dart' show StyleString;
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
     show ImageModel;
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -94,11 +94,10 @@ class RenderImageGrid extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData>,
         RenderObjectWithLayoutCallbackMixin {
   RenderImageGrid({
-    required ValueChanged<int> onTap,
+    required this._onTap,
     required OnShowMenu? onSecondaryTapUp,
     required OnShowMenu? onLongPressStart,
-  }) : _onTap = onTap,
-       _onSecondaryTapUp = onSecondaryTapUp,
+  }) : _onSecondaryTapUp = onSecondaryTapUp,
        _onLongPressStart = onLongPressStart {
     _tapGestureRecognizer = TapGestureRecognizer()..onTap = _handleOnTap;
     if (onSecondaryTapUp != null) {
@@ -505,7 +504,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
         if (width != 1) {
           imageWidth = math.min(imageWidth, width.toDouble());
         }
-        imageHeight = imageWidth * math.min(ratioHW, StyleString.imgMaxRatio);
+        imageHeight = imageWidth * math.min(ratioHW, Style.imgMaxRatio);
       }
     }
 

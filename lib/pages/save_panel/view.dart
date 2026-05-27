@@ -1,4 +1,6 @@
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -17,6 +19,7 @@ import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -88,7 +91,7 @@ class _SavePanelState extends State<SavePanel> {
       final currentRoute = Get.currentRoute;
       late final hasRoot = reply.hasRoot();
 
-      if (currentRoute.startsWith('/video')) {
+      if (currentRoute == '/videoV') {
         final rootId = hasRoot ? reply.root : reply.id;
 
         uri =
@@ -310,7 +313,7 @@ class _SavePanelState extends State<SavePanel> {
                 mimeType: 'image/png',
               ),
             ],
-            sharePositionOrigin: await Utils.sharePositionOrigin,
+            sharePositionOrigin: await ShareUtils.sharePositionOrigin,
           ),
         );
       } else {
@@ -401,7 +404,7 @@ class _SavePanelState extends State<SavePanel> {
                                 src: cover!,
                                 height: coverSize,
                                 width: coverType == .def16_9
-                                    ? coverSize * StyleString.aspectRatio16x9
+                                    ? coverSize * Style.aspectRatio16x9
                                     : coverSize,
                                 quality: 100,
                                 borderRadius: const .all(.circular(6)),
@@ -488,7 +491,7 @@ class _SavePanelState extends State<SavePanel> {
                                             height: 88,
                                             margin: const .all(12),
                                             padding: const .all(3),
-                                            color: theme.brightness.isDark
+                                            color: theme.isDark
                                                 ? Colors.white
                                                 : theme.colorScheme.surface,
                                             child: PrettyQrView.data(
@@ -507,7 +510,7 @@ class _SavePanelState extends State<SavePanel> {
                                 Align(
                                   alignment: .centerLeft,
                                   child: Image.asset(
-                                    'assets/images/logo/logo_2.png',
+                                    Assets.logo2,
                                     width: 100,
                                     cacheWidth: 100.cacheSize(context),
                                     color: theme.colorScheme.onSurfaceVariant,

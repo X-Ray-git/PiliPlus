@@ -49,7 +49,7 @@ abstract final class VideoHttp {
   static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
 
   // 首页推荐视频
-  static Future<LoadingState<List<RecVideoItemModel>>> rcmdVideoList({
+  static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
     required int ps,
     required int freshIdx,
   }) async {
@@ -66,13 +66,13 @@ abstract final class VideoHttp {
       }),
     );
     if (res.data['code'] == 0) {
-      List<RecVideoItemModel> list = <RecVideoItemModel>[];
+      List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
       for (final i in res.data['data']['item']) {
         //过滤掉live与ad，以及拉黑用户
         if (i['goto'] == 'av' &&
             (i['owner'] != null &&
                 !GlobalData().blackMids.contains(i['owner']['mid']))) {
-          RecVideoItemModel videoItem = RecVideoItemModel.fromJson(i);
+          RcmdVideoItemModel videoItem = RcmdVideoItemModel.fromJson(i);
           if (!RecommendFilter.filter(videoItem)) {
             list.add(videoItem);
           }
@@ -85,7 +85,7 @@ abstract final class VideoHttp {
   }
 
   // 添加额外的loginState变量模拟未登录状态
-  static Future<LoadingState<List<RecVideoItemAppModel>>> rcmdVideoListApp({
+  static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp({
     required int freshIdx,
   }) async {
     final params = {
@@ -139,7 +139,7 @@ abstract final class VideoHttp {
       ),
     );
     if (res.data['code'] == 0) {
-      List<RecVideoItemAppModel> list = <RecVideoItemAppModel>[];
+      List<RcmdVideoItemAppModel> list = <RcmdVideoItemAppModel>[];
       for (final i in res.data['data']['items']) {
         // 屏蔽推广和拉黑用户
         if (i['card_goto'] != 'ad_av' &&
@@ -152,7 +152,7 @@ abstract final class VideoHttp {
               zoneRegExp.hasMatch(i['args']['tname'])) {
             continue;
           }
-          RecVideoItemAppModel videoItem = RecVideoItemAppModel.fromJson(i);
+          RcmdVideoItemAppModel videoItem = RcmdVideoItemAppModel.fromJson(i);
           if (!RecommendFilter.filter(videoItem)) {
             list.add(videoItem);
           }
@@ -208,7 +208,10 @@ abstract final class VideoHttp {
     required bool tryLook,
     required VideoType videoType,
     String? language,
+    bool voiceBalance = false,
   }) async {
+    final dmImgStr = Utils.base64EncodeRandomString(16, 64);
+    final dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
     final params = await WbiSign.makSign({
       'avid': ?avid,
       'bvid': ?bvid,
@@ -220,12 +223,16 @@ abstract final class VideoHttp {
       'fnval': 4048,
       'fourk': 1,
       'fnver': 0,
-      'voice_balance': 1,
+      'voice_balance': voiceBalance ? 1 : 0,
       'gaia_source': 'pre-load',
       'isGaiaAvoided': true,
       'web_location': 1315873,
       // 免登录查看1080p
       if (tryLook) 'try_look': 1,
+      'dm_img_list': '[]',
+      'dm_img_str': dmImgStr,
+      'dm_cover_img_str': dmCoverImgStr,
+      'dm_img_inter': '{"ds":[],"wh":[0,0,0],"of":[0,0,0]}',
       'cur_language': ?language,
     });
 
@@ -564,7 +571,6 @@ abstract final class VideoHttp {
           replyInfo.id.toString(),
           (replyInfo.deepCopy()
                 ..unknownFields.clear()
-                ..clearMemberV2()
                 ..clearTrackInfo())
               .writeToBuffer(),
         );

@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/tabs.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -14,6 +17,7 @@ import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/mobile_observer.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -41,6 +45,7 @@ class _MainAppState extends PopScopeState<MainApp>
   final _mainController = Get.put(MainController());
   late final _setting = GStorage.setting;
   late EdgeInsets _padding;
+  late ThemeData theme;
 
   @override
   bool get initCanPop => false;
@@ -48,7 +53,7 @@ class _MainAppState extends PopScopeState<MainApp>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    addObserverMobile(this);
     if (PlatformUtils.isDesktop) {
       windowManager
         ..addListener(this)
@@ -67,7 +72,8 @@ class _MainAppState extends PopScopeState<MainApp>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _padding = MediaQuery.viewPaddingOf(context);
-    final brightness = Theme.brightnessOf(context);
+    theme = Theme.of(context);
+    final brightness = theme.brightness;
     NetworkImgLayer.reduce =
         NetworkImgLayer.reduceLuxColor != null && brightness.isDark;
     if (PlatformUtils.isDesktop) {
@@ -80,7 +86,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void didPopNext() {
-    WidgetsBinding.instance.addObserver(this);
+    addObserverMobile(this);
     _mainController
       ..checkUnreadDynamic()
       ..checkDefaultSearch(true)
@@ -90,7 +96,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void didPushNext() {
-    WidgetsBinding.instance.removeObserver(this);
+    removeObserverMobile(this);
     super.didPushNext();
   }
 
@@ -110,7 +116,7 @@ class _MainAppState extends PopScopeState<MainApp>
       trayManager.removeListener(this);
       windowManager.removeListener(this);
     }
-    WidgetsBinding.instance.removeObserver(this);
+    removeObserverMobile(this);
     PiliScheme.listener?.cancel();
     GStorage.close();
     super.dispose();
@@ -225,9 +231,9 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Future<void> _handleTray() async {
     if (Platform.isWindows) {
-      await trayManager.setIcon('assets/images/logo/ico/app_icon.ico');
+      await trayManager.setIcon(Assets.logoIco);
     } else {
-      await trayManager.setIcon('assets/images/logo/desktop/logo_large.png');
+      await trayManager.setIcon(Assets.logoLarge);
     }
     if (!Platform.isLinux) {
       await trayManager.setToolTip(Constants.appName);
@@ -267,67 +273,88 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget? get _bottomNav {
-    Widget? bottomNav = _mainController.navigationBars.length > 1
-        ? _mainController.enableMYBar
-              ? Obx(
-                  () => NavigationBar(
-                    maintainBottomViewPadding: true,
-                    onDestinationSelected: _mainController.setIndex,
-                    selectedIndex: _mainController.selectedIndex.value,
-                    destinations: _mainController.navigationBars
-                        .map(
-                          (e) => NavigationDestination(
-                            label: e.label,
-                            icon: _buildIcon(type: e),
-                            selectedIcon: _buildIcon(type: e, selected: true),
-                          ),
-                        )
-                        .toList(),
+    Widget? bottomNav;
+    if (_mainController.navigationBars.length > 1) {
+      if (_mainController.floatingNavBar) {
+        bottomNav = Obx(
+          () => FloatingNavigationBar(
+            onDestinationSelected: _mainController.setIndex,
+            selectedIndex: _mainController.selectedIndex.value,
+            destinations: _mainController.navigationBars
+                .map(
+                  (e) => FloatingNavigationDestination(
+                    label: e.label,
+                    icon: _buildIcon(type: e),
+                    selectedIcon: _buildIcon(type: e, selected: true),
                   ),
                 )
-              : Obx(
-                  () => BottomNavigationBar(
-                    currentIndex: _mainController.selectedIndex.value,
-                    onTap: _mainController.setIndex,
-                    iconSize: 16,
-                    selectedFontSize: 12,
-                    unselectedFontSize: 12,
-                    type: .fixed,
-                    items: _mainController.navigationBars
-                        .map(
-                          (e) => BottomNavigationBarItem(
-                            label: e.label,
-                            icon: _buildIcon(type: e),
-                            activeIcon: _buildIcon(type: e, selected: true),
-                          ),
-                        )
-                        .toList(),
+                .toList(),
+          ),
+        );
+      } else if (_mainController.enableMYBar) {
+        bottomNav = Obx(
+          () => NavigationBar(
+            maintainBottomViewPadding: true,
+            onDestinationSelected: _mainController.setIndex,
+            selectedIndex: _mainController.selectedIndex.value,
+            destinations: _mainController.navigationBars
+                .map(
+                  (e) => NavigationDestination(
+                    label: e.label,
+                    icon: _buildIcon(type: e),
+                    selectedIcon: _buildIcon(type: e, selected: true),
                   ),
                 )
-        : null;
-    if (bottomNav != null && _mainController.hideBottomBar) {
-      if (_mainController.barOffset case final barOffset?) {
-        return Obx(
-          () => FractionalTranslation(
-            translation: Offset(
-              0.0,
-              barOffset.value / StyleString.topBarHeight,
-            ),
-            child: bottomNav,
+                .toList(),
+          ),
+        );
+      } else {
+        bottomNav = Obx(
+          () => BottomNavigationBar(
+            currentIndex: _mainController.selectedIndex.value,
+            onTap: _mainController.setIndex,
+            iconSize: 16,
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            type: .fixed,
+            items: _mainController.navigationBars
+                .map(
+                  (e) => BottomNavigationBarItem(
+                    label: e.label,
+                    icon: _buildIcon(type: e),
+                    activeIcon: _buildIcon(type: e, selected: true),
+                  ),
+                )
+                .toList(),
           ),
         );
       }
-      if (_mainController.showBottomBar case final showBottomBar?) {
-        return Obx(
-          () => AnimatedSlide(
-            curve: Curves.easeInOutCubicEmphasized,
-            duration: const Duration(milliseconds: 500),
-            offset: Offset(0, showBottomBar.value ? 0 : 1),
-            child: bottomNav,
-          ),
-        );
+
+      if (_mainController.hideBottomBar) {
+        if (_mainController.barOffset case final barOffset?) {
+          return Obx(
+            () => FractionalTranslation(
+              translation: Offset(
+                0.0,
+                barOffset.value / Style.topBarHeight,
+              ),
+              child: bottomNav,
+            ),
+          );
+        }
+        if (_mainController.showBottomBar case final showBottomBar?) {
+          return Obx(
+            () => AnimatedSlide(
+              curve: Curves.easeInOutCubicEmphasized,
+              duration: const Duration(milliseconds: 500),
+              offset: Offset(0, showBottomBar.value ? 0 : 1),
+              child: bottomNav,
+            ),
+          );
+        }
       }
     }
+
     return bottomNav;
   }
 
@@ -400,7 +427,6 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     Widget child;
     if (_mainController.mainTabBarView) {
       child = CustomTabBarView(

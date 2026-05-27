@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/dial_prefix.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/radio_widget.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -13,6 +13,7 @@ import 'package:PiliPlus/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class LoginPageController extends GetxController
   late final RxInt qrCodeLeftTime = 180.obs;
   late final RxString statusQRCode = ''.obs;
 
-  late var selectedCountryCodeId = Constants.internationalDialingPrefix.first;
+  late var selectedCountryCodeId = Login.dialPrefix.first;
   late String captchaKey = '';
   late final RxInt smsSendCooldown = 0.obs;
   late int smsSendTimestamp = 0;
@@ -313,9 +314,6 @@ class LoginPageController extends GetxController
       }
       if (data['status'] == 2) {
         SmartDialog.showToast(data['message']);
-        if (Platform.isLinux) {
-          return;
-        }
         // return;
         //{"code":0,"message":"0","ttl":1,"data":{"status":2,"message":"本次登录环境存在风险, 需使用手机号进行验证或绑定","url":"https://passport.bilibili.com/h5-app/passport/risk/verify?tmp_token=9e785433940891dfa78f033fb7928181&request_id=e5a6d6480df04097870be56c6e60f7ef&source=risk","token_info":null,"cookie_info":null,"sso":null,"is_new":false,"is_tourist":false}}
         String url = data['url']!;
@@ -442,7 +440,7 @@ class LoginPageController extends GetxController
                 onPressed: Get.back,
                 child: Text(
                   "取消",
-                  style: TextStyle(color: Get.theme.colorScheme.outline),
+                  style: TextStyle(color: ThemeUtils.theme.colorScheme.outline),
                 ),
               ),
               TextButton(
@@ -520,7 +518,7 @@ class LoginPageController extends GetxController
         case 0:
           // login success
           break;
-        case -105 when (!Platform.isLinux):
+        case -105:
           String captureUrl = res['data']['url'];
           Uri captureUri = Uri.parse(captureUrl);
           captchaData.token = captureUri.queryParameters['recaptcha_token']!;

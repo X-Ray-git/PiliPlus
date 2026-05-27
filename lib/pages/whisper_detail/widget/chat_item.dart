@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/flutter/layout_builder.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/image_viewer/hero.dart';
@@ -22,7 +22,7 @@ import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart' hide LayoutBuilder;
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -177,7 +177,7 @@ class ChatItem extends StatelessWidget {
           return msgTypeTipMessage_18(theme, content);
         case MsgType.EN_MSG_TYPE_TEXT:
           return msgTypeText_1(theme, content: content, textColor: textColor);
-        case MsgType.EN_MSG_TYPE_PIC:
+        case MsgType.EN_MSG_TYPE_PIC || MsgType.EN_MSG_TYPE_CUSTOM_FACE:
           return msgTypePic_2(content);
         case MsgType.EN_MSG_TYPE_SHARE_V2:
           return msgTypeShareV2_7(content, textColor);
@@ -327,13 +327,17 @@ class ChatItem extends StatelessWidget {
                   if (bvid != null) {
                     try {
                       SmartDialog.showLoading();
-                      final int? cid = await SearchHttp.ab2c(bvid: bvid);
+                      final res = await SearchHttp.ab2cWithDimension(
+                        bvid: bvid,
+                      );
+                      final cid = res?.cid;
                       SmartDialog.dismiss();
                       if (cid != null) {
                         PageUtils.toVideoPage(
                           bvid: bvid,
                           cid: cid,
                           cover: i['cover_url'],
+                          dimension: res!.dimension,
                         );
                       }
                     } catch (err) {
@@ -408,7 +412,7 @@ class ChatItem extends StatelessWidget {
         clipBehavior: Clip.hardEdge,
         constraints: const BoxConstraints(maxWidth: 400.0),
         decoration: BoxDecoration(
-          borderRadius: StyleString.mdRadius,
+          borderRadius: Style.mdRadius,
           color: theme.colorScheme.onInverseSurface,
         ),
         child: LayoutBuilder(
@@ -419,13 +423,17 @@ class ChatItem extends StatelessWidget {
                 try {
                   SmartDialog.showLoading();
                   final bvid = content["bvid"];
-                  final int? cid = await SearchHttp.ab2c(bvid: bvid);
+                  final res = await SearchHttp.ab2cWithDimension(
+                    bvid: bvid,
+                  );
+                  final cid = res?.cid;
                   SmartDialog.dismiss();
                   if (cid != null) {
                     PageUtils.toVideoPage(
                       bvid: bvid,
                       cid: cid,
                       cover: content['cover'],
+                      dimension: res!.dimension,
                     );
                   }
                 } catch (err) {
@@ -442,8 +450,7 @@ class ChatItem extends StatelessWidget {
                       NetworkImgLayer(
                         type: ImageType.emote,
                         width: constrains.maxWidth,
-                        height:
-                            constrains.maxWidth / StyleString.aspectRatio16x9,
+                        height: constrains.maxWidth / Style.aspectRatio16x9,
                         src: content['cover'],
                       ),
                       PBadge(
@@ -518,7 +525,10 @@ class ChatItem extends StatelessWidget {
           }
           bvid ??= IdUtils.av2bv(aid);
           SmartDialog.showLoading();
-          final int? cid = await SearchHttp.ab2c(bvid: bvid);
+          final res = await SearchHttp.ab2cWithDimension(
+            bvid: bvid,
+          );
+          final cid = res?.cid;
           SmartDialog.dismiss();
           if (cid != null) {
             PageUtils.toVideoPage(
@@ -526,6 +536,7 @@ class ChatItem extends StatelessWidget {
               bvid: bvid,
               cid: cid,
               cover: content['thumb'],
+              dimension: res!.dimension,
             );
           }
         };
@@ -620,7 +631,7 @@ class ChatItem extends StatelessWidget {
       height: width * ratio,
       src: url,
     );
-    if (ratio <= StyleString.imgMaxRatio) {
+    if (ratio <= Style.imgMaxRatio) {
       child = fromHero(
         tag: url,
         child: child,
@@ -781,7 +792,7 @@ class ChatItem extends StatelessWidget {
       builder: (context, constraints) {
         final maxWidth = math.max(400.0, constraints.maxWidth);
         Widget child = ClipRRect(
-          borderRadius: StyleString.mdRadius,
+          borderRadius: Style.mdRadius,
           child: CachedNetworkImage(
             width: maxWidth,
             memCacheWidth: maxWidth.cacheSize(context),

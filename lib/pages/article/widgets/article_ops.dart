@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/models_new/article/article_view/ops.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
@@ -13,9 +13,9 @@ import 'package:get/get.dart';
 class ArticleOpus extends StatelessWidget {
   const ArticleOpus({
     super.key,
-    required List<ArticleOps>? ops,
+    required this._ops,
     required this.maxWidth,
-  }) : _ops = ops;
+  });
 
   final List<ArticleOps>? _ops;
   final double maxWidth;
@@ -68,7 +68,7 @@ class ArticleOpus extends StatelessWidget {
                       }
                     },
                     child: ClipRRect(
-                      borderRadius: StyleString.mdRadius,
+                      borderRadius: Style.mdRadius,
                       child: CachedNetworkImage(
                         width: width,
                         height: height,

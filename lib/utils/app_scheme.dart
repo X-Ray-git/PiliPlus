@@ -7,6 +7,7 @@ import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/fav_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/pages/audio/view.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
 import 'package:PiliPlus/pages/fan/view.dart';
 import 'package:PiliPlus/pages/follow/view.dart';
 import 'package:PiliPlus/pages/follow_type/followed/view.dart';
@@ -425,6 +426,9 @@ abstract final class PiliScheme {
               }
             }
             return false;
+          case 'download':
+            Get.toNamed('/download');
+            return true;
           default:
             if (!selfHandle) {
               // if (kDebugMode) debugPrint('$uri');
@@ -503,13 +507,25 @@ abstract final class PiliScheme {
     }
 
     final String path = uri.path;
+    late final queryParameters = uri.queryParameters;
 
     if (host.contains('t.bilibili.com')) {
-      bool hasMatch = _onPushDynDetail(uri, off);
-      if (!hasMatch) {
-        launchURL();
+      if (_onPushDynDetail(uri, off)) {
+        return true;
+      } else if (path.startsWith('/vote')) {
+        // t.bilibili.com/vote/h5/index?vote_id={{vote_id}}#/result
+        if (queryParameters['vote_id'] case final voteIdStr?) {
+          final voteId = int.tryParse(voteIdStr);
+          if (voteId != null) {
+            if (Get.context != null) {
+              showVoteDialog(Get.context!, voteId);
+            }
+            return true;
+          }
+        }
       }
-      return hasMatch;
+      launchURL();
+      return false;
     } else if (host.contains('live.bilibili.com')) {
       String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
       if (roomId != null) {
@@ -537,8 +553,6 @@ abstract final class PiliScheme {
             PageUtils.toDupNamed('/member?mid=$mid', off: off);
         }
       }
-
-      late final queryParameters = uri.queryParameters;
 
       // space.bilibili.com/h5/follow?mid={{mid}}&type={{type}}
       if (path.startsWith('/h5/follow')) {
@@ -642,11 +656,13 @@ abstract final class PiliScheme {
             IdUtils.bvRegex.firstMatch(path)?.group(0);
         if (bvid != null) {
           if (mediaId != null) {
-            final int? cid = await SearchHttp.ab2c(bvid: bvid);
+            final res = await SearchHttp.ab2cWithDimension(bvid: bvid);
+            final cid = res?.cid;
             if (cid != null) {
               PageUtils.toVideoPage(
                 bvid: bvid,
                 cid: cid,
+                dimension: res!.dimension,
                 extraArguments: {
                   'sourceType': SourceType.playlist,
                   'favTitle': '播放列表',
@@ -834,6 +850,15 @@ abstract final class PiliScheme {
         }
         launchURL();
         return false;
+      case 'bubble':
+        // https://www.bilibili.com/bubble/home/1
+        final id = uriDigitRegExp.firstMatch(path)?.group(1);
+        if (id != null) {
+          Get.toNamed('/bubble', arguments: {'id': id});
+          return true;
+        }
+        launchURL();
+        return false;
       default:
         final res = IdUtils.matchAvorBv(input: area?.split('?').first);
         if (res.isNotEmpty) {
@@ -893,11 +918,12 @@ abstract final class PiliScheme {
       if (showDialog) {
         SmartDialog.showLoading<dynamic>(msg: '获取中...');
       }
-      final int? cid = await SearchHttp.ab2c(
+      final res = await SearchHttp.ab2cWithDimension(
         bvid: bvid,
         aid: aid,
         part: part != null ? int.tryParse(part) : null,
       );
+      final cid = res?.cid;
       if (showDialog) {
         SmartDialog.dismiss();
       }
@@ -908,6 +934,7 @@ abstract final class PiliScheme {
           cid: cid,
           progress: progress,
           off: off,
+          dimension: res!.dimension,
         );
       }
     } catch (e) {

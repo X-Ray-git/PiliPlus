@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/models_new/search/search_trending/list.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
@@ -73,7 +74,7 @@ class SliverHotKeyword extends StatelessWidget {
                             Padding(
                               padding: const EdgeInsets.only(left: 4),
                               child: Image.asset(
-                                'assets/images/live/live.gif',
+                                Assets.livingRect,
                                 width: 48,
                                 height: 15,
                                 cacheHeight: cacheHeight,
@@ -134,12 +135,10 @@ class _RenderHotKeywordGrid extends RenderBox
         ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
   _RenderHotKeywordGrid({
-    required int crossAxisCount,
-    required double mainAxisSpacing,
-    required double crossAxisSpacing,
-  }) : _crossAxisCount = crossAxisCount,
-       _mainAxisSpacing = mainAxisSpacing,
-       _crossAxisSpacing = crossAxisSpacing;
+    required this._crossAxisCount,
+    required this._mainAxisSpacing,
+    required this._crossAxisSpacing,
+  });
 
   int _crossAxisCount;
   int get crossAxisCount => _crossAxisCount;

@@ -1,16 +1,16 @@
-import 'dart:io';
+import 'dart:io' show Platform;
 
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
+import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart'
-    show allowRotateScreen;
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -43,6 +43,13 @@ List<SettingsModel> get playSettings => [
     title: '倍速设置',
     subtitle: '设置视频播放速度',
   ),
+  if (Platform.isAndroid)
+    NormalModel(
+      onTap: _showAngleDegreesDialog,
+      leading: const Icon(MdiIcons.angleAcute),
+      title: '倾斜角度阈值',
+      getSubtitle: () => '当前:「${Pref.angleDegrees}°」',
+    ),
   const SwitchModel(
     title: '自动播放',
     subtitle: '进入详情页自动播放',
@@ -147,6 +154,12 @@ List<SettingsModel> get playSettings => [
     getSubtitle: () => '当前:「${Pref.superChatType.title}」',
     onTap: _showSuperChatDialog,
   ),
+  NormalModel(
+    title: '全屏 SC 大小',
+    subtitle: 'SuperChat (醒目留言) 大小设置',
+    leading: const Icon(Icons.open_in_full),
+    onTap: (_, _) => Get.to(const FullScreenScSize()),
+  ),
   const SwitchModel(
     title: '竖屏扩大展示',
     subtitle: '小屏竖屏视频宽高比由16:9扩大至1:1（不支持收起）；横屏适配时，扩大至9:16',
@@ -174,14 +187,6 @@ List<SettingsModel> get playSettings => [
     leading: Icon(Icons.timer_outlined),
     setKey: SettingBoxKey.enableLongShowControl,
     defaultVal: false,
-  ),
-  SwitchModel(
-    title: '全向旋转',
-    subtitle: '小屏可受重力转为临时全屏，若系统锁定旋转仍触发请关闭，关闭会影响横屏适配',
-    leading: const Icon(Icons.screen_rotation_alt_outlined),
-    setKey: SettingBoxKey.allowRotateScreen,
-    defaultVal: true,
-    onChanged: (value) => allowRotateScreen = value,
   ),
   if (PlatformUtils.isMobile)
     const SwitchModel(
@@ -346,6 +351,28 @@ Future<void> _showProgressBehaviorDialog(
       SettingBoxKey.btmProgressBehavior,
       res.index,
     );
+    setState();
+  }
+}
+
+Future<void> _showAngleDegreesDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: '倾斜角度阈值',
+      min: 10.0,
+      max: 90.0,
+      divisions: 90,
+      precise: 0,
+      value: Pref.angleDegrees.toDouble(),
+      suffix: '°',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
     setState();
   }
 }

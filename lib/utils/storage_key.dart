@@ -23,6 +23,7 @@ abstract final class SettingBoxKey {
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
       superChatType = 'superChatType',
+      fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
@@ -32,7 +33,6 @@ abstract final class SettingBoxKey {
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',
       enableLongShowControl = 'enableLongShowControl',
-      allowRotateScreen = 'allowRotateScreen',
       horizontalScreen = 'horizontalScreen',
       CDNService = 'CDNService',
       disableAudioCDN = 'disableAudioCDN',
@@ -100,7 +100,8 @@ abstract final class SettingBoxKey {
       preInitPlayer = 'preInitPlayer',
       mainTabBarView = 'mainTabBarView',
       searchSuggestion = 'searchSuggestion',
-      showDynDecorate = 'showDynDecorate',
+      showDecorate = 'showDynDecorate',
+      showMedal = 'showMedal',
       enableLivePhoto = 'enableLivePhoto',
       showSeekPreview = 'showSeekPreview',
       showDmChart = 'showDmChart',
@@ -148,7 +149,10 @@ abstract final class SettingBoxKey {
       followOrderType = 'followOrderType',
       enableImgMenu = 'enableImgMenu',
       showDynDispute = 'showDynDispute',
-      touchSlopH = 'touchSlopH';
+      touchSlopH = 'touchSlopH',
+      floatingNavBar = 'floatingNavBar',
+      removeSafeArea = 'removeSafeArea',
+      angleDegrees = 'angleDegrees';
 
   static const String minimizeOnExit = 'minimizeOnExit',
       windowSize = 'windowSize',

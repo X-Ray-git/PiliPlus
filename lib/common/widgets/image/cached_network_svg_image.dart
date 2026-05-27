@@ -13,44 +13,30 @@ class CachedNetworkSVGImage extends StatefulWidget {
     String url, {
     Key? key,
     String? cacheKey,
-    Widget? placeholder,
-    Widget? errorWidget,
-    double? width,
-    double? height,
-    Map<String, String>? headers,
-    BoxFit fit = BoxFit.contain,
-    AlignmentGeometry alignment = Alignment.center,
-    bool matchTextDirection = false,
-    bool allowDrawingOutsideViewBox = false,
-    String? semanticsLabel,
-    bool excludeFromSemantics = false,
-    SvgTheme theme = const SvgTheme(),
-    ColorFilter? colorFilter,
-    WidgetBuilder? placeholderBuilder,
+    this._placeholder,
+    this._errorBuilder,
+    this._width,
+    this._height,
+    this._headers,
+    this._fit = BoxFit.contain,
+    this._alignment = Alignment.center,
+    this._matchTextDirection = false,
+    this._allowDrawingOutsideViewBox = false,
+    this._semanticsLabel,
+    this._excludeFromSemantics = false,
+    this._theme = const SvgTheme(),
+    this._colorFilter,
+    this._placeholderBuilder,
     BaseCacheManager? cacheManager,
   }) : _url = url,
        _cacheKey = cacheKey,
-       _placeholder = placeholder,
-       _errorWidget = errorWidget,
-       _width = width,
-       _height = height,
-       _headers = headers,
-       _fit = fit,
-       _alignment = alignment,
-       _matchTextDirection = matchTextDirection,
-       _allowDrawingOutsideViewBox = allowDrawingOutsideViewBox,
-       _semanticsLabel = semanticsLabel,
-       _excludeFromSemantics = excludeFromSemantics,
-       _theme = theme,
-       _colorFilter = colorFilter,
-       _placeholderBuilder = placeholderBuilder,
        _cacheManager = cacheManager ?? DefaultCacheManager(),
        super(key: key ?? ValueKey(cacheKey ?? url));
 
   final String _url;
   final String? _cacheKey;
   final Widget? _placeholder;
-  final Widget? _errorWidget;
+  final WidgetBuilder? _errorBuilder;
   final double? _width;
   final double? _height;
   final Map<String, String>? _headers;
@@ -172,7 +158,8 @@ class _CachedNetworkSVGImageState extends State<CachedNetworkSVGImage> {
 
   Widget _buildPlaceholderWidget() => Center(child: widget._placeholder);
 
-  Widget _buildErrorWidget() => Center(child: widget._errorWidget);
+  Widget _buildErrorWidget() =>
+      Center(child: widget._errorBuilder?.call(context));
 
   Widget? _buildSVGImage() {
     if (_svgString == null) {

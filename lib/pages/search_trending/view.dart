@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -7,12 +8,12 @@ import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/search/search_trending/list.dart';
 import 'package:PiliPlus/pages/search_trending/controller.dart';
+import 'package:PiliPlus/utils/color_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide ListTile;
@@ -126,7 +127,7 @@ class _SearchTrendingPageState extends State<SearchTrendingPage> {
                       width: width,
                       height: height,
                       cacheWidth: width.cacheSize(context),
-                      'assets/images/trending_banner.png',
+                      Assets.trendingBanner,
                       filterQuality: FilterQuality.low,
                     ),
                   ),
@@ -180,7 +181,7 @@ class _SearchTrendingPageState extends State<SearchTrendingPage> {
                             '${index + 1 - _controller.topCount}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Utils.index2Color(
+                              color: ColourUtils.index2Color(
                                 index - _controller.topCount,
                                 theme.colorScheme.outline,
                               ),
@@ -210,7 +211,7 @@ class _SearchTrendingPageState extends State<SearchTrendingPage> {
                         ] else if (item.showLiveIcon == true) ...[
                           const SizedBox(width: 4),
                           Image.asset(
-                            'assets/images/live/live.gif',
+                            Assets.livingRect,
                             width: 51,
                             height: 16,
                             cacheHeight: 16.cacheSize(context),

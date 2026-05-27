@@ -480,14 +480,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
         imageQuality: 100,
       );
       if (pickedFile != null && mounted) {
-        String? mimeType = lookupMimeType(
-          pickedFile.path,
-        )?.split('/').elementAtOrNull(1);
+        String? imagePath = pickedFile.path;
+        String? mimeType = (pickedFile.mimeType ?? lookupMimeType(imagePath))
+            ?.split('/')
+            .elementAtOrNull(1);
         if (mimeType == 'gif') {
           SmartDialog.showToast('不能选GIF');
           return;
         }
-        String? imagePath = pickedFile.path;
         if (PlatformUtils.isMobile) {
           final croppedFile = await ImageCropper.platform.cropImage(
             sourcePath: imagePath,
@@ -496,7 +496,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 toolbarTitle: '裁剪',
                 toolbarColor: theme.colorScheme.secondaryContainer,
                 toolbarWidgetColor: theme.colorScheme.onSecondaryContainer,
-                statusBarLight: theme.colorScheme.isLight,
+                statusBarLight: theme.isLight,
                 aspectRatioPresets: const [CropAspectRatioPresetCustom()],
                 lockAspectRatio: true,
                 hideBottomControls: true,

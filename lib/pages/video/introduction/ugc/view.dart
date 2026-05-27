@@ -1,11 +1,12 @@
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
-import 'package:PiliPlus/common/widgets/flutter/selectable_text/selection_area.dart';
-import 'package:PiliPlus/common/widgets/flutter/selectable_text/text.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
+import 'package:PiliPlus/common/widgets/selectable_text.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/http/sponsor_block.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
@@ -37,7 +38,7 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:expandable/expandable.dart';
-import 'package:flutter/material.dart' hide SelectionArea;
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -92,8 +93,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     final isHorizontal = !isPortrait && widget.isHorizontal;
     return SliverPadding(
       padding: const EdgeInsets.only(
-        left: StyleString.safeSpace,
-        right: StyleString.safeSpace,
+        left: Style.safeSpace,
+        right: Style.safeSpace,
         top: 10,
       ),
       sliver: Obx(
@@ -672,9 +673,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                               if (!mounted) return;
                               final confirmed = await showConfirmDialog(
                                 context: context,
-                                title: '空降助手：搬运视频同步',
-                                content:
-                                    '${hasPortVideo ? "" : "是否将"}该视频${hasPortVideo ? "已" : ""}绑定到此YouTube视频($ytbId)',
+                                title: const Text('空降助手：搬运视频同步'),
+                                content: Text(
+                                  '${hasPortVideo ? "" : "是否将"}该视频${hasPortVideo ? "已" : ""}绑定到此YouTube视频($ytbId)',
+                                ),
                               );
                               if (!hasPortVideo && confirmed) {
                                 final res = await SponsorBlock.postPortVideo(
@@ -913,10 +915,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PendantAvatar(
-              avatar: userStat.card?.face,
+              userStat.card?.face,
               size: 35,
               badgeSize: 14,
-              isVip: isVip,
+              vipStatus: userStat.card?.vip?.status,
               officialType: userStat.card?.official?.type,
             ),
             const SizedBox(width: 10),
@@ -1012,7 +1014,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
         },
         child: Image.asset(
           semanticLabel: 'AI总结',
-          'assets/images/ai.png',
+          Assets.ai,
           height: 18,
           width: 18,
           cacheHeight: 18.cacheSize(context),

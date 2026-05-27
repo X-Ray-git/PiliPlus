@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
@@ -5,6 +6,7 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
+import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_topic_feed/item.dart';
@@ -12,10 +14,13 @@ import 'package:PiliPlus/models_new/dynamic/dyn_topic_top/top_details.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/dynamics_topic/controller.dart';
+import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/share_utils.dart';
+import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +46,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
+    final colorScheme = ColorScheme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -70,7 +75,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
           slivers: [
             Obx(
               () => _buildAppBar(
-                theme,
+                colorScheme,
                 padding,
                 _controller.topState.value,
               ),
@@ -79,7 +84,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
               final allSortBy = _controller.topicSortByConf.value?.allSortBy;
               if (allSortBy != null && allSortBy.isNotEmpty) {
                 return SliverPinnedHeader(
-                  backgroundColor: theme.colorScheme.surface,
+                  backgroundColor: colorScheme.surface,
                   child: Padding(
                     padding: EdgeInsets.only(
                       left: 12 + padding.left,
@@ -89,8 +94,8 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                     child: Builder(
                       builder: (context) {
                         return ToggleButtons(
-                          fillColor: theme.colorScheme.secondaryContainer,
-                          selectedColor: theme.colorScheme.onSecondaryContainer,
+                          fillColor: colorScheme.secondaryContainer,
+                          selectedColor: colorScheme.onSecondaryContainer,
                           constraints: const BoxConstraints(
                             minWidth: 54,
                             minHeight: 24,
@@ -144,7 +149,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
   }
 
   Widget _buildAppBar(
-    ThemeData theme,
+    ColorScheme colorScheme,
     EdgeInsets padding,
     LoadingState<TopDetails?> topState,
   ) {
@@ -157,9 +162,10 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
         flexibleSpace: Container(
           decoration: BoxDecoration(
             image: DecorationImage(
-              image: Image.asset(
-                'assets/images/topic-header-bg.png',
-              ).image,
+              image: ResizeImage(
+                width: MediaQuery.widthOf(context).cacheSize(context),
+                const AssetImage(Assets.topicHeader),
+              ),
               filterQuality: FilterQuality.low,
               fit: BoxFit.cover,
             ),
@@ -200,7 +206,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                       ),
                       Text(
                         ' 发起',
-                        style: TextStyle(color: theme.colorScheme.outline),
+                        style: TextStyle(color: colorScheme.outline),
                       ),
                     ],
                   ),
@@ -216,7 +222,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
               const SizedBox(height: 6),
               SelectableText(
                 response.topicItem!.description!,
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 10),
               Row(
@@ -225,7 +231,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                     '${NumUtils.numFormat(response.topicItem!.view)}浏览 · ${NumUtils.numFormat(response.topicItem!.discuss)}讨论',
                     style: TextStyle(
                       fontSize: 13,
-                      color: theme.colorScheme.outline,
+                      color: colorScheme.outline,
                     ),
                   ),
                   const Spacer(),
@@ -233,13 +239,11 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
                         width: 1,
-                        color: theme.colorScheme.outline.withValues(
-                          alpha: 0.2,
-                        ),
+                        color: colorScheme.outline.withValues(alpha: 0.2),
                       ),
-                      foregroundColor: _controller.isLike.value == true
+                      foregroundColor: _controller.isLike.value
                           ? null
-                          : theme.colorScheme.onSurfaceVariant,
+                          : colorScheme.onSurfaceVariant,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       visualDensity: const VisualDensity(
                         horizontal: -4,
@@ -248,7 +252,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: _controller.onLike,
-                    icon: _controller.isLike.value == true
+                    icon: _controller.isLike.value
                         ? const Icon(FontAwesomeIcons.solidThumbsUp, size: 13)
                         : const Icon(FontAwesomeIcons.thumbsUp, size: 13),
                     label: Text(
@@ -262,22 +266,17 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
                         width: 1,
-                        color: theme.colorScheme.outline.withValues(
-                          alpha: 0.2,
-                        ),
+                        color: colorScheme.outline.withValues(alpha: 0.2),
                       ),
-                      foregroundColor: _controller.isFav.value == true
+                      foregroundColor: _controller.isFav.value
                           ? null
-                          : theme.colorScheme.onSurfaceVariant,
+                          : colorScheme.onSurfaceVariant,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      visualDensity: const VisualDensity(
-                        horizontal: -4,
-                        vertical: -4,
-                      ),
+                      visualDensity: const .new(horizontal: -4, vertical: -4),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: _controller.onFav,
-                    icon: _controller.isFav.value == true
+                    icon: _controller.isFav.value
                         ? const Icon(FontAwesomeIcons.solidStar, size: 13)
                         : const Icon(FontAwesomeIcons.star, size: 13),
                     label: Text(
@@ -294,7 +293,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
         ),
         actions: [
           IconButton(
-            onPressed: () => Utils.shareText(
+            onPressed: () => ShareUtils.shareText(
               '${_controller.topicName} https://m.bilibili.com/topic-detail?topic_id=${_controller.topicId}',
             ),
             // https://www.bilibili.com/v/topic/detail?topic_id=${_controller.topicId}
@@ -306,7 +305,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                 PopupMenuItem(
                   onTap: _controller.onFav,
                   child: Text(
-                    '${_controller.isFav.value == true ? '取消' : ''}收藏',
+                    '${_controller.isFav.value ? '取消' : ''}收藏',
                   ),
                 ),
                 PopupMenuItem(
@@ -317,7 +316,7 @@ class _DynTopicPageState extends State<DynTopicPage> with DynMixin {
                       return;
                     }
                     PageUtils.inAppWebview(
-                      'https://www.bilibili.com/h5/topic-active/topic-report?topic_id=${_controller.topicId}&topic_name=${_controller.topicName}&${Utils.themeUrl(theme.colorScheme.isDark)}',
+                      '${HttpString.baseUrl}/h5/topic-active/topic-report?topic_id=${_controller.topicId}&topic_name=${_controller.topicName}&${ThemeUtils.themeUrl(colorScheme.isDark)}',
                     );
                   },
                 ),

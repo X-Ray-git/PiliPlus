@@ -1,11 +1,10 @@
 import 'dart:math' show max;
 
-import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/button/toolbar_icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
-import 'package:PiliPlus/common/widgets/flutter/draggable_sheet/draggable_scrollable_sheet_dyn.dart'
-    as dyn_sheet;
+import 'package:PiliPlus/common/widgets/flutter/draggable_scrollable_sheet.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
@@ -29,11 +28,10 @@ import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
-import 'package:flutter/material.dart'
-    hide DraggableScrollableSheet, showTimePicker;
+import 'package:collection/collection.dart';
+import 'package:flutter/material.dart' hide showTimePicker;
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -78,7 +76,7 @@ class CreateDynPanel extends CommonRichTextPubPage {
     context: context,
     useSafeArea: true,
     isScrollControlled: true,
-    builder: (context) => dyn_sheet.DraggableScrollableSheet(
+    builder: (context) => DynDraggableScrollableSheet(
       snap: true,
       expand: false,
       initialChildSize: 1,
@@ -106,8 +104,8 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   late final Rx<Pair<int, String>?> _topic;
   late final Rx<ReplyOptionType> _replyOption;
   late final TextEditingController _titleEditCtr;
-  late final Rx<DateTime?> _publishTime = Rx<DateTime?>(null);
-  final Rx<ReserveInfoData?> _reserveCard = Rx<ReserveInfoData?>(null);
+  late final _publishTime = Rxn<DateTime>();
+  final _reserveCard = Rxn<ReserveInfoData>();
 
   @override
   void initState() {
@@ -299,9 +297,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           if (imageList.length != limit)
             SliverToBoxAdapter(
               child: Material(
-                borderRadius: StyleString.mdRadius,
+                borderRadius: Style.mdRadius,
                 child: InkWell(
-                  borderRadius: StyleString.mdRadius,
+                  borderRadius: Style.mdRadius,
                   onTap: () => onPickImage(() {
                     if (imageList.isNotEmpty && !enablePublish.value) {
                       enablePublish.value = true;
@@ -311,7 +309,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      borderRadius: StyleString.mdRadius,
+                      borderRadius: Style.mdRadius,
                       color: theme.colorScheme.secondaryContainer,
                     ),
                     child: const Center(child: Icon(Icons.add, size: 35)),
@@ -363,7 +361,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           alignment: Alignment.centerRight,
           child: Obx(
             () => FilledButton.tonal(
-              onPressed: enablePublish.value ? onPublish : null,
+              onPressed: enablePublish.value ? onPublishThrottle : null,
               style: FilledButton.styleFrom(
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 padding: const EdgeInsets.symmetric(
@@ -656,10 +654,10 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   Widget get voteBtn => ToolbarIconButton(
     onPressed: () async {
       controller.keepChatPanel();
-      RichTextItem? voteItem = editController.items.firstWhereOrNull(
+      final voteItem = editController.items.firstWhereOrNull(
         (e) => e.type == RichTextType.vote,
       );
-      final VoteInfo? voteInfo = await Navigator.of(context).push(
+      final voteInfo = await Navigator.of(context).push<VoteInfo>(
         GetPageRoute(
           page: () => CreateVotePage(
             voteId: voteItem?.id == null ? null : int.parse(voteItem!.id!),
@@ -803,7 +801,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
       SmartDialog.showToast('发布成功');
       final id = response?['dyn_id'];
       RequestUtils.insertCreatedDyn(id);
-      if (!_isPrivate.value) {
+      if (!_isPrivate.value && _publishTime.value == null) {
         RequestUtils.checkCreatedDyn(
           id: id,
           dynText: editController.rawText,

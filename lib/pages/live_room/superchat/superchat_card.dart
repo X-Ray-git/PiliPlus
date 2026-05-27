@@ -1,13 +1,17 @@
 import 'dart:async';
 
-import 'package:PiliPlus/common/widgets/flutter/selectable_text/selection_area.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
+import 'package:PiliPlus/pages/member/widget/medal_widget.dart';
+import 'package:PiliPlus/utils/color_utils.dart';
+import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart' hide SelectionArea;
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class SuperChatCard extends StatefulWidget {
@@ -16,13 +20,13 @@ class SuperChatCard extends StatefulWidget {
     required this.item,
     this.onRemove,
     this.persistentSC = false,
-    required this.onReport,
+    this.onReport,
   });
 
   final SuperChatItem item;
   final VoidCallback? onRemove;
   final bool persistentSC;
-  final VoidCallback onReport;
+  final VoidCallback? onReport;
 
   @override
   State<SuperChatCard> createState() => _SuperChatCardState();
@@ -132,10 +136,39 @@ class _SuperChatCardState extends State<SuperChatCard> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final bottomColor = Utils.parseColor(item.backgroundBottomColor);
+    final bottomColor = ColourUtils.parseColor(item.backgroundBottomColor);
     final border = BorderSide(color: bottomColor);
     void showMenu(TapUpDetails e) => _showMenu(e.globalPosition, item);
+
+    Widget name = Text(
+      item.userInfo.uname,
+      maxLines: 1,
+      overflow: .ellipsis,
+      style: TextStyle(
+        color: ColourUtils.parseColor(item.userInfo.nameColor),
+      ),
+    );
+    if (item.medalInfo case final medal?) {
+      try {
+        name = Row(
+          spacing: 5,
+          children: [
+            MedalWidget.fromMedalInfo(
+              medal: medal,
+              padding: MedalWidget.mediumPadding,
+            ),
+            Flexible(child: name),
+          ],
+        );
+      } catch (e, s) {
+        if (kDebugMode) {
+          Utils.reportError(e, s);
+        }
+      }
+    }
+
     return Column(
+      mainAxisSize: .min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GestureDetector(
@@ -144,8 +177,16 @@ class _SuperChatCardState extends State<SuperChatCard> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: const .vertical(top: .circular(8)),
-              color: Utils.parseColor(item.backgroundColor),
+              color: ColourUtils.parseColor(item.backgroundColor),
               border: Border(top: border, left: border, right: border),
+              image: item.backgroundImage == null
+                  ? null
+                  : DecorationImage(
+                      alignment: .topRight,
+                      image: CachedNetworkImageProvider(
+                        ImageUtils.safeThumbnailUrl(item.backgroundImage),
+                      ),
+                    ),
             ),
             padding: const EdgeInsets.all(8),
             child: Row(
@@ -162,16 +203,13 @@ class _SuperChatCardState extends State<SuperChatCard> {
                     mainAxisSize: .min,
                     crossAxisAlignment: .start,
                     children: [
-                      Text(
-                        item.userInfo.uname,
-                        style: TextStyle(
-                          color: Utils.parseColor(item.userInfo.nameColor),
-                        ),
-                      ),
+                      name,
                       Text(
                         "￥${item.price}",
                         style: TextStyle(
-                          color: Utils.parseColor(item.backgroundPriceColor),
+                          color: ColourUtils.parseColor(
+                            item.backgroundPriceColor,
+                          ),
                         ),
                       ),
                     ],
@@ -201,7 +239,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
             child: Text(
               item.message,
               style: TextStyle(
-                color: Utils.parseColor(item.messageFontColor),
+                color: ColourUtils.parseColor(item.messageFontColor),
                 decoration: widget.persistentSC && item.deleted
                     ? .lineThrough
                     : null,
