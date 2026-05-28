@@ -41,17 +41,21 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   Future<void>? Function(Duration position)? onSeek;
 
   @override
-  Future<void> play() {
-    return onPlay?.call() ??
-        PlPlayerController.playIfExists() ??
-        Future.syncValue(null);
-    // player.play();
+  Future<void> play() async {
+    if (onPlay != null) {
+      await onPlay!.call();
+    } else {
+      await PlPlayerController.playIfExists();
+    }
   }
 
   @override
-  Future<void> pause() {
-    return onPause?.call() ?? PlPlayerController.pauseIfExists();
-    // player.pause();
+  Future<void> pause() async {
+    if (onPause != null) {
+      await onPause!.call();
+    } else {
+      await PlPlayerController.pauseIfExists();
+    }
   }
 
   @override
@@ -117,6 +121,9 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
         playing: playing,
         systemActions: const {
           MediaAction.seek,
+          MediaAction.play,
+          MediaAction.pause,
+          MediaAction.playPause,
         },
       ),
     );

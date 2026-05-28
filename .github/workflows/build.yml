@@ -129,6 +129,7 @@ jobs:
                   # Use manual tag input OR the git tag that triggered the workflow
                   tag_name: ${{ github.event.inputs.tag || github.ref_name }}
                   name: ${{ github.event.inputs.tag || github.ref_name }}
+                  make_latest: true
                   files: |
                       PiliPlus_android_*_arm64.apk
 
