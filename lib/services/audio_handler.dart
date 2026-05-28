@@ -40,6 +40,10 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   Future<void>? Function()? onPause;
   Future<void>? Function(Duration position)? onSeek;
 
+  // [MOD: 修复蓝牙耳机控制]
+  // 原上游代码移除了 async 且使用 onPlay?.call() ?? ...
+  // 由于音频页面的 onPlay 返回 null，会导致 ?? 错误地穿透执行视频播放器的逻辑，导致控制失效。
+  // 此处恢复严格的 async/await 顺序以确保逻辑正确分离。
   @override
   Future<void> play() async {
     if (onPlay != null) {
@@ -49,6 +53,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
+  // [MOD: 修复蓝牙耳机控制] 同上，修复 onPause 返回 null 时导致的穿透调用问题
   @override
   Future<void> pause() async {
     if (onPause != null) {
@@ -119,6 +124,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
             ),
         ],
         playing: playing,
+        // [MOD: 修复蓝牙耳机控制] 显式声明播放/暂停的动作，强制现代 Android (12+) 系统将蓝牙耳机按键事件路由给 App
         systemActions: const {
           MediaAction.seek,
           MediaAction.play,
