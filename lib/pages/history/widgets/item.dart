@@ -261,7 +261,8 @@ class HistoryItem extends StatelessWidget {
                 ];
               },
             ),
-          ],
+          ),
+        ],
         ),
       ),
     );

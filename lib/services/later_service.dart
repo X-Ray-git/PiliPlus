@@ -1,7 +1,9 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/services/account_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class LaterService extends GetxService {
@@ -13,7 +15,7 @@ class LaterService extends GetxService {
   void onInit() {
     super.onInit();
     // Listen to login state changes
-    ever(Accounts.heartbeat.isLoginObs, (isLogin) {
+    ever(Get.find<AccountService>().isLogin, (bool isLogin) {
       if (isLogin) {
         syncList();
       } else {
@@ -21,13 +23,13 @@ class LaterService extends GetxService {
       }
     });
 
-    if (Accounts.heartbeat.isLogin) {
+    if (Get.find<AccountService>().isLogin.value) {
       syncList();
     }
   }
 
   Future<void> syncList() async {
-    if (!Accounts.heartbeat.isLogin) return;
+    if (!Get.find<AccountService>().isLogin.value) return;
     
     int page = 1;
     bool hasMore = true;
@@ -73,8 +75,8 @@ class LaterService extends GetxService {
   }
 
   Future<void> toggleLater(String bvid, {int? aid}) async {
-    if (!Accounts.heartbeat.isLogin) {
-      Get.snackbar('提示', '账号未登录');
+    if (!Get.find<AccountService>().isLogin.value) {
+      SmartDialog.showToast('账号未登录');
       return;
     }
 
