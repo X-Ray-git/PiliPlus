@@ -9,8 +9,9 @@ import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/model_video.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
@@ -87,15 +88,20 @@ void imageSaveDialog({
                   else
                     const Spacer(),
                   if (aid != null || bvid != null) ...[
-                    iconButton(
-                      iconSize: iconSize,
-                      tooltip: '稍后再看',
-                      onPressed: () => {
-                        SmartDialog.dismiss(),
-                        UserHttp.toViewLater(aid: aid, bvid: bvid),
-                      },
-                      icon: const Icon(Icons.watch_later_outlined),
-                    ),
+                    // [CUSTOM] Use LaterService for global watch later sync
+                    Obx(() {
+                      final String currentBvid = bvid ?? IdUtils.av2bv(aid as int);
+                      final bool isAdded = LaterService.to.isInLater(currentBvid);
+                      return iconButton(
+                        iconSize: iconSize,
+                        tooltip: isAdded ? '移除稍后再看' : '稍后再看',
+                        onPressed: () => {
+                          SmartDialog.dismiss(),
+                          LaterService.to.toggleLater(currentBvid, aid: aid),
+                        },
+                        icon: Icon(isAdded ? Icons.watch_later : Icons.watch_later_outlined),
+                      );
+                    }),
                     iconButton(
                       iconSize: iconSize,
                       tooltip: '收藏',

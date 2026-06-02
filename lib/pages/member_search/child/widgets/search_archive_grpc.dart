@@ -5,7 +5,7 @@ import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/grpc/bilibili/app/interfaces/v1.pb.dart' show Arc;
-import 'package:PiliPlus/http/user.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models/common/stat_type.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -125,7 +125,10 @@ class SearchArchiveGrpc extends StatelessWidget {
                 size: 17,
               ),
               position: PopupMenuPosition.under,
-              itemBuilder: (context) => [
+              itemBuilder: (context) {
+                // [CUSTOM] Use LaterService for global watch later sync
+                final isAdded = LaterService.to.isInLater(bvid);
+                return [
                 PopupMenuItem(
                   height: 45,
                   onTap: () => Utils.copyText(bvid),
@@ -139,16 +142,17 @@ class SearchArchiveGrpc extends StatelessWidget {
                 ),
                 PopupMenuItem(
                   height: 45,
-                  onTap: () => UserHttp.toViewLater(bvid: bvid),
-                  child: const Row(
+                  onTap: () => LaterService.to.toggleLater(bvid),
+                  child: Row(
                     spacing: 6,
                     children: [
-                      Icon(MdiIcons.clockTimeEightOutline, size: 16),
-                      Text('稍后再看', style: TextStyle(fontSize: 13)),
+                      Icon(isAdded ? MdiIcons.clockCheckOutline : MdiIcons.clockTimeEightOutline, size: 16),
+                      Text(isAdded ? '移除稍后再看' : '稍后再看', style: const TextStyle(fontSize: 13)),
                     ],
                   ),
                 ),
-              ],
+              ];
+              },
             ),
           ),
         ],

@@ -13,6 +13,7 @@ import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/video/ai_conclusion/view.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -60,10 +61,11 @@ class VideoPopupMenu extends StatelessWidget {
                     const Icon(CustomIcons.identifier_circle, size: 16),
                     () => Utils.copyText(videoItem.bvid!),
                   ),
+                  // [CUSTOM] Use LaterService for global watch later sync
                   _VideoCustomAction(
-                    '稍后再看',
-                    const Icon(MdiIcons.clockTimeEightOutline, size: 16),
-                    () => UserHttp.toViewLater(bvid: videoItem.bvid),
+                    LaterService.to.isInLater(videoItem.bvid) ? '移除稍后再看' : '稍后再看',
+                    Icon(LaterService.to.isInLater(videoItem.bvid) ? MdiIcons.clockCheckOutline : MdiIcons.clockTimeEightOutline, size: 16),
+                    () => LaterService.to.toggleLater(videoItem.bvid!),
                   ),
                   // 收藏
                   _VideoCustomAction(

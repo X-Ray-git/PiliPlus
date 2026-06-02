@@ -17,6 +17,7 @@ import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/save_panel/view.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/color_utils.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -294,18 +295,22 @@ class AuthorPanel extends StatelessWidget {
                 ),
               ),
               if (bvid != null) ...[
-                ListTile(
-                  onTap: () {
-                    Get.back();
-                    UserHttp.toViewLater(bvid: bvid);
-                  },
-                  minLeadingWidth: 0,
-                  leading: const Icon(Icons.watch_later_outlined, size: 19),
-                  title: Text(
-                    '稍后再看',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
+                // [CUSTOM] Use LaterService for global watch later sync
+                Obx(() {
+                  final isAdded = LaterService.to.isInLater(bvid);
+                  return ListTile(
+                    onTap: () {
+                      Get.back();
+                      LaterService.to.toggleLater(bvid!);
+                    },
+                    minLeadingWidth: 0,
+                    leading: Icon(isAdded ? Icons.watch_later : Icons.watch_later_outlined, size: 19),
+                    title: Text(
+                      isAdded ? '移除稍后再看' : '稍后再看',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  );
+                }),
                 ListTile(
                   onTap: () async {
                     Get.back();

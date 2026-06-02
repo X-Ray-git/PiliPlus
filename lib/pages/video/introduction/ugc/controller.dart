@@ -28,6 +28,7 @@ import 'package:PiliPlus/pages/video/related/controller.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
@@ -534,8 +535,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           } catch (_) {}
         }
 
-        hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
         this.bvid = bvid;
+        // [CUSTOM] Use LaterService for global watch later sync
+        hasLater.value = LaterService.to.isInLater(bvid);
         queryVideoIntro();
       } else {
         if (episode is Part) {

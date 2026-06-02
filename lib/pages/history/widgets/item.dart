@@ -9,6 +9,7 @@ import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -205,7 +206,11 @@ class HistoryItem extends StatelessWidget {
                   size: 18,
                 ),
                 position: PopupMenuPosition.under,
-                itemBuilder: (_) => [
+                itemBuilder: (_) {
+                  // [CUSTOM] Use LaterService for global watch later sync
+                  final String currentBvid = item.history.bvid ?? bvid;
+                  final bool isAdded = LaterService.to.isInLater(currentBvid);
+                  return [
                   if (item.authorMid != null &&
                       item.authorName?.isNotEmpty == true)
                     PopupMenuItem(
@@ -232,13 +237,13 @@ class HistoryItem extends StatelessWidget {
                       business?.contains('article') != true)
                     PopupMenuItem(
                       onTap: () =>
-                          UserHttp.toViewLater(bvid: item.history.bvid),
+                          LaterService.to.toggleLater(currentBvid),
                       height: 38,
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.watch_later_outlined, size: 16),
-                          SizedBox(width: 6),
-                          Text('稍后再看', style: TextStyle(fontSize: 13)),
+                          Icon(isAdded ? MdiIcons.clockCheckOutline : Icons.watch_later_outlined, size: 16),
+                          const SizedBox(width: 6),
+                          Text(isAdded ? '移除稍后再看' : '稍后再看', style: const TextStyle(fontSize: 13)),
                         ],
                       ),
                     ),
@@ -253,8 +258,8 @@ class HistoryItem extends StatelessWidget {
                       ],
                     ),
                   ),
-                ],
-              ),
+                ];
+              },
             ),
           ],
         ),

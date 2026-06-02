@@ -11,6 +11,7 @@ import 'package:PiliPlus/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliPlus/models_new/video/video_tag/data.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/triple_mixin.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -78,7 +79,12 @@ abstract class CommonIntroController extends GetxController
     heroTag = args['heroTag'];
     bvid = args['bvid'];
     cid = RxInt(args['cid']);
-    hasLater.value = args['sourceType'] == SourceType.watchLater;
+    
+    // [CUSTOM] Use LaterService for global watch later sync
+    ever(LaterService.to.laterBvids, (_) {
+      hasLater.value = LaterService.to.isInLater(bvid);
+    });
+    hasLater.value = LaterService.to.isInLater(bvid);
 
     queryVideoIntro();
     startTimer();
@@ -150,10 +156,8 @@ abstract class CommonIntroController extends GetxController
   }
 
   Future<void> viewLater() async {
-    final res = await (hasLater.value
-        ? UserHttp.toViewDel(aids: IdUtils.bv2av(bvid).toString())
-        : UserHttp.toViewLater(bvid: bvid));
-    if (res.isSuccess) hasLater.value = !hasLater.value;
+    // [CUSTOM] Use LaterService for global watch later sync
+    await LaterService.to.toggleLater(bvid, aid: IdUtils.bv2av(bvid));
   }
 }
 

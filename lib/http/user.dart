@@ -58,6 +58,8 @@ abstract final class UserHttp {
   // 稍后再看
   static Future<LoadingState<LaterData>> seeYouLater({
     required int page,
+    // [CUSTOM] Added `ps` parameter for global watch later sync (Custom Feature)
+    int ps = 20,
     int viewed = 0,
     String keyword = '',
     bool asc = false,
@@ -66,7 +68,7 @@ abstract final class UserHttp {
       Api.seeYouLater,
       queryParameters: await WbiSign.makSign({
         'pn': page,
-        'ps': 20,
+        'ps': ps,
         'viewed': viewed,
         'key': keyword,
         'asc': asc,

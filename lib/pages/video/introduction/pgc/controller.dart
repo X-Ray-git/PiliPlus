@@ -19,6 +19,7 @@ import 'package:PiliPlus/pages/dynamics_repost/view.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -303,7 +304,8 @@ class PgcIntroController extends CommonIntroController {
         queryPgcLikeCoinFav();
       }
 
-      hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
+      // [CUSTOM] Use LaterService for global watch later sync
+      hasLater.value = LaterService.to.isInLater(bvid);
       this.cid.value = cid;
       queryOnlineTotal();
       queryVideoIntro(episode as EpisodeItem);
