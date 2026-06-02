@@ -471,9 +471,11 @@ class PlPlayerController with BlockConfigMixin {
 
   static PlayCallback? _playCallBack;
 
+  // [CUSTOM: 修复通知栏无法恢复播放]
+  // 原实现：return _playCallBack?.call();
+  // 当回调函数丢失或返回 null 时，会导致点击播放按钮无效。这里增加回退逻辑，直接调用 _instance?.play()
   static Future<void>? playIfExists() {
-    // await _instance?.play(repeat: repeat, hideControls: hideControls);
-    return _playCallBack?.call();
+    return _playCallBack?.call() ?? _instance?.play();
   }
 
   // try to get PlayerStatus
