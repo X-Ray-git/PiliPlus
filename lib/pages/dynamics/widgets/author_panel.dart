@@ -14,7 +14,6 @@ import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/save_panel/view.dart';
 import 'package:PiliPlus/services/later_service.dart';
@@ -29,7 +28,7 @@ import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -304,7 +303,10 @@ class AuthorPanel extends StatelessWidget {
                       LaterService.to.toggleLater(bvid!);
                     },
                     minLeadingWidth: 0,
-                    leading: Icon(isAdded ? Icons.watch_later : Icons.watch_later_outlined, size: 19),
+                    leading: Icon(
+                      isAdded ? Icons.watch_later : Icons.watch_later_outlined,
+                      size: 19,
+                    ),
                     title: Text(
                       isAdded ? '移除稍后再看' : '稍后再看',
                       style: theme.textTheme.titleSmall,
@@ -318,7 +320,7 @@ class AuthorPanel extends StatelessWidget {
                       SmartDialog.showToast('账号未登录');
                       return;
                     }
-                    
+
                     // 获取aid
                     int? aid;
                     try {
@@ -328,73 +330,79 @@ class AuthorPanel extends StatelessWidget {
                       } else if (item.type == 'DYNAMIC_TYPE_UGC_SEASON') {
                         aid = major?.ugcSeason?.aid;
                       }
-                      
+
                       if (aid == null && item.orig != null) {
-                        final origMajor = item.orig!.modules.moduleDynamic?.major;
+                        final origMajor =
+                            item.orig!.modules.moduleDynamic?.major;
                         if (item.orig!.type == 'DYNAMIC_TYPE_AV') {
                           aid = origMajor?.archive?.aid;
-                        } else if (item.orig!.type == 'DYNAMIC_TYPE_UGC_SEASON') {
+                        } else if (item.orig!.type ==
+                            'DYNAMIC_TYPE_UGC_SEASON') {
                           aid = origMajor?.ugcSeason?.aid;
                         }
                       }
                     } catch (_) {}
-                    
+
                     if (aid == null) {
                       SmartDialog.showToast('无法获取视频ID');
                       return;
                     }
-                    
+
                     SmartDialog.showLoading(msg: '加载中');
-                    
+
                     final foldersRes = await FavHttp.videoInFolder(
                       mid: Accounts.main.mid,
                       rid: aid,
                       type: 2,
                     );
-                    
+
                     SmartDialog.dismiss();
-                    
+
                     if (!foldersRes.isSuccess) {
                       SmartDialog.showToast('获取收藏夹失败');
                       return;
                     }
-                    
+
                     final folders = foldersRes.data.list ?? [];
                     if (folders.isEmpty) {
                       SmartDialog.showToast('暂无收藏夹，请先创建');
                       return;
                     }
-                    
+
                     final initialSelected = folders
                         .where((f) => f.favState == 1)
                         .map((f) => f.id)
                         .toSet();
-                    
+
                     if (!context.mounted) return;
-                    
+
                     final result = await FavSelectDialog.show(
                       context,
                       folders,
                       initialSelected,
                     );
-                    
+
                     if (result == null) return;
-                    
+
                     if (result.add.isEmpty && result.del.isEmpty) {
                       SmartDialog.showToast('未做任何修改');
                       return;
                     }
-                    
+
                     SmartDialog.showLoading(msg: '处理中');
-                    
+
                     final favRes = await FavHttp.favVideo(
                       resources: '$aid:2',
-                      addIds: result.add.isNotEmpty ? result.add.join(',') : null,
-                      delIds: result.del.isNotEmpty ? result.del.join(',') : null,
+                      addIds: result.add.isNotEmpty
+                          ? result.add.join(',')
+                          : null,
+                      delIds: result.del.isNotEmpty
+                          ? result.del.join(',')
+                          : null,
                     );
-                    
+
                     SmartDialog.dismiss();
-                    
+
                     if (favRes.isSuccess) {
                       SmartDialog.showToast('操作成功');
                     } else {
@@ -537,41 +545,37 @@ class AuthorPanel extends StatelessWidget {
                               final reply = response.upReply;
                               final enableReply = reply.status == 1;
 
-                              return AlertDialog(
+                              return SimpleDialog(
                                 clipBehavior: .hardEdge,
                                 contentPadding: const .symmetric(vertical: 12),
-                                content: Column(
-                                  mainAxisSize: .min,
-                                  crossAxisAlignment: .start,
-                                  children: [
-                                    ListTile(
-                                      dense: true,
-                                      enabled: selection.canModify,
-                                      title: Text(
-                                        '${enableSelection ? '停止' : '开启'}评论精选',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                      onTap: () {
-                                        Get.back();
-                                        onSetReplySubject!(
-                                          enableSelection ? 2 : 1,
-                                        );
-                                      },
+                                children: [
+                                  ListTile(
+                                    dense: true,
+                                    enabled: selection.canModify,
+                                    title: Text(
+                                      '${enableSelection ? '停止' : '开启'}评论精选',
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                    ListTile(
-                                      dense: true,
-                                      enabled: reply.canModify,
-                                      title: Text(
-                                        '${enableReply ? '关闭' : '恢复'}评论',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                      onTap: () {
-                                        Get.back();
-                                        onSetReplySubject!(enableReply ? 3 : 4);
-                                      },
+                                    onTap: () {
+                                      Get.back();
+                                      onSetReplySubject!(
+                                        enableSelection ? 2 : 1,
+                                      );
+                                    },
+                                  ),
+                                  ListTile(
+                                    dense: true,
+                                    enabled: reply.canModify,
+                                    title: Text(
+                                      '${enableReply ? '关闭' : '恢复'}评论',
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                  ],
-                                ),
+                                    onTap: () {
+                                      Get.back();
+                                      onSetReplySubject!(enableReply ? 3 : 4);
+                                    },
+                                  ),
+                                ],
                               );
                             },
                           );
@@ -610,32 +614,29 @@ class AuthorPanel extends StatelessWidget {
 
                       showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
+                        builder: (context) => SimpleDialog(
                           clipBehavior: Clip.hardEdge,
                           contentPadding: const .symmetric(vertical: 12),
-                          content: Column(
-                            mainAxisSize: .min,
-                            children: [
-                              ListTile(
-                                dense: true,
-                                enabled: isPrivate,
-                                title: const Text(
-                                  '所有用户可见',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                                onTap: onTap,
+                          children: [
+                            ListTile(
+                              dense: true,
+                              enabled: isPrivate,
+                              title: const Text(
+                                '所有用户可见',
+                                style: TextStyle(fontSize: 14),
                               ),
-                              ListTile(
-                                dense: true,
-                                enabled: !isPrivate,
-                                title: const Text(
-                                  '仅自己可见',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                                onTap: onTap,
+                              onTap: onTap,
+                            ),
+                            ListTile(
+                              dense: true,
+                              enabled: !isPrivate,
+                              title: const Text(
+                                '仅自己可见',
+                                style: TextStyle(fontSize: 14),
                               ),
-                            ],
-                          ),
+                              onTap: onTap,
+                            ),
+                          ],
                         ),
                       );
                     },

@@ -61,7 +61,7 @@ jobs:
 
         steps:
             - name: 代码迁出
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
 
@@ -86,7 +86,6 @@ jobs:
             - name: Apply Patch
               shell: pwsh
               run: lib/scripts/patch.ps1 android
-              continue-on-error: true
 
             - name: Write key
               # Run on manual dispatch OR tag push
@@ -124,7 +123,7 @@ jobs:
             - name: Release
               # Run if manual dispatch with tag defined, OR if it's a tag push
               if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') || startsWith(github.ref, 'refs/tags/') }}
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               with:
                   # Use manual tag input OR the git tag that triggered the workflow
                   tag_name: ${{ github.event.inputs.tag || github.ref_name }}

@@ -1,6 +1,5 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
-import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -30,7 +29,7 @@ class LaterService extends GetxService {
 
   Future<void> syncList() async {
     if (!Get.find<AccountService>().isLogin.value) return;
-    
+
     int page = 1;
     bool hasMore = true;
     final Set<String> newBvids = {};
@@ -39,7 +38,7 @@ class LaterService extends GetxService {
       // 100 per page to reduce requests
       final res = await UserHttp.seeYouLater(page: page, ps: 100);
       if (res case Success(:final response)) {
-        final list = response?.list;
+        final list = response.list;
         if (list == null || list.isEmpty) {
           hasMore = false;
         } else {

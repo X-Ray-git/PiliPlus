@@ -24,6 +24,7 @@ import 'package:PiliPlus/pages/member_guard/view.dart';
 import 'package:PiliPlus/pages/member_upower_rank/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
+import 'package:PiliPlus/utils/bili_colors.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/color_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -35,7 +36,7 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -217,14 +218,10 @@ class UserInfoCard extends StatelessWidget {
               ),
             ),
           ),
-          Image.asset(
-            BiliUtils.levelName(
-              card.levelInfo!.currentLevel!,
-              isSeniorMember: card.levelInfo?.identity == 2,
-            ),
+          BiliUtils.levelPicture(
+            card.levelInfo!.currentLevel!,
+            isSeniorMember: card.levelInfo?.identity == 2,
             height: 11,
-            cacheHeight: 11.cacheSize(context),
-            semanticLabel: '等级${card.levelInfo?.currentLevel}',
           ),
           if (card.vip?.status == 1)
             Container(
@@ -282,13 +279,17 @@ class UserInfoCard extends StatelessWidget {
                     shape: .circle,
                     color: colorScheme.surface,
                   ),
-                  child: Icon(
-                    Icons.offline_bolt,
-                    color: card.officialVerify?.type == 0
-                        ? const Color(0xFFFFCC00)
-                        : Colors.lightBlueAccent,
-                    size: 18,
-                  ),
+                  child: card.officialVerify?.type == 0
+                      ? const Icon(
+                          Icons.offline_bolt,
+                          color: BiliColors.yellow,
+                          size: 18,
+                        )
+                      : const Icon(
+                          Icons.offline_bolt,
+                          color: Colors.lightBlueAccent,
+                          size: 18,
+                        ),
                 ),
               ),
               const TextSpan(text: ' '),

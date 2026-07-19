@@ -25,6 +25,7 @@ import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/editable.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/spell_check.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_selection.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart'
@@ -2609,6 +2610,10 @@ class EditableTextState extends State<EditableText>
       selection.baseOffset,
       selection.extentOffset,
     );
+    final TextEditingValue collapsedTextEditingValue = textEditingValue
+        .copyWith(selection: .collapsed(offset: lastSelectionIndex));
+    final newValue = collapsedTextEditingValue.replaced(selection, text);
+
     // bggRGjQaUbCoE _pasteText
     widget.controller.syncRichText(
       selection.isCollapsed
@@ -2616,22 +2621,18 @@ class EditableTextState extends State<EditableText>
               oldText: textEditingValue.text,
               textInserted: text,
               insertionOffset: selection.baseOffset,
-              selection: TextSelection.collapsed(offset: lastSelectionIndex),
-              composing: TextRange.empty,
+              selection: newValue.selection,
+              composing: newValue.composing,
             )
           : TextEditingDeltaReplacement(
               oldText: textEditingValue.text,
               replacementText: text,
               replacedRange: selection,
-              selection: TextSelection.collapsed(offset: lastSelectionIndex),
-              composing: TextRange.empty,
+              selection: newValue.selection,
+              composing: newValue.composing,
             ),
     );
-    final newValue = _value.copyWith(
-      text: widget.controller.plainText,
-      selection: widget.controller.newSelection,
-      composing: TextRange.empty,
-    );
+
     userUpdateTextEditingValue(newValue, cause);
     if (cause == SelectionChangedCause.toolbar) {
       // Schedule a call to bringIntoView() after renderEditable updates.
@@ -3280,13 +3281,7 @@ class EditableTextState extends State<EditableText>
     }
 
     if (kIsWeb && _hasInputConnection) {
-      final obscureTextChanged = oldWidget.obscureText != widget.obscureText;
-      if (obscureTextChanged || oldWidget.keyboardType != widget.keyboardType) {
-        if (obscureTextChanged) {
-          // When obscureText is toggled, we should reset its state to prevent the last character from being visible between state changes.
-          _obscureShowCharTicksPending = 0;
-          _obscureLatestCharIndex = null;
-        }
+      if (oldWidget.readOnly != widget.readOnly) {
         _textInputConnection!.updateConfig(
           _effectiveAutofillClient.textInputConfiguration,
         );
@@ -3294,8 +3289,13 @@ class EditableTextState extends State<EditableText>
     }
 
     if (_hasInputConnection) {
-      if (oldWidget.obscureText != widget.obscureText ||
-          oldWidget.keyboardType != widget.keyboardType) {
+      final obscureTextChanged = oldWidget.obscureText != widget.obscureText;
+      if (obscureTextChanged || oldWidget.keyboardType != widget.keyboardType) {
+        if (obscureTextChanged) {
+          // When obscureText is toggled, we should reset its state to prevent the last character from being visible between state changes.
+          _obscureShowCharTicksPending = 0;
+          _obscureLatestCharIndex = null;
+        }
         _textInputConnection!.updateConfig(
           _effectiveAutofillClient.textInputConfiguration,
         );
@@ -3557,6 +3557,8 @@ class EditableTextState extends State<EditableText>
     }
   }
 
+  TextRange? _deletedRange;
+
   @override
   void updateEditingValueWithDeltas(List<TextEditingDelta> textEditingDeltas) {
     if (textEditingDeltas.isEmpty) {
@@ -3565,14 +3567,35 @@ class EditableTextState extends State<EditableText>
     }
     TextEditingValue remoteValue = _value;
     for (final TextEditingDelta delta in textEditingDeltas) {
+      if (PlatformUtils.isDesktop) {
+        if (_deletedRange case final range?) {
+          final deleteDelta = TextEditingDeltaDeletion(
+            oldText: remoteValue.text,
+            deletedRange: range,
+            selection: remoteValue.selection,
+            composing: remoteValue.composing,
+          );
+          _deletedRange = null;
+          widget.controller.syncRichText(deleteDelta);
+        } else if (delta is TextEditingDeltaInsertion &&
+            !remoteValue.selection.isCollapsed) {
+          final offset = delta.textInserted.length;
+          _deletedRange = TextRange(
+            start: remoteValue.selection.start + offset,
+            end: remoteValue.selection.end + offset,
+          );
+        }
+      }
       widget.controller.syncRichText(delta);
       remoteValue = delta.apply(remoteValue);
     }
 
-    final newValue = _value.copyWith(
-      text: widget.controller.plainText,
+    final plainText = widget.controller.plainText;
+    final composing = textEditingDeltas.last.composing;
+    final newValue = TextEditingValue(
+      text: plainText,
       selection: widget.controller.newSelection,
-      composing: textEditingDeltas.last.composing,
+      composing: composing.end <= plainText.length ? composing : .empty,
     );
 
     updateEditingValue(newValue, remoteValue: remoteValue);
@@ -4846,6 +4869,7 @@ class EditableTextState extends State<EditableText>
   }
 
   void _handleFocusChanged() {
+    _deletedRange = null;
     _openOrCloseInputConnectionIfNeeded();
     _startOrStopCursorTimerIfNeeded();
     _updateOrDisposeSelectionOverlayIfNeeded();
@@ -5530,33 +5554,39 @@ class EditableTextState extends State<EditableText>
 
   void _replaceText(ReplaceTextIntent intent) {
     final TextEditingValue oldValue = _value;
-    // bggRGjQaUbCoE _replaceText
-    widget.controller.syncRichText(
-      intent.replacementText.isEmpty
-          ? TextEditingDeltaDeletion(
-              oldText: oldValue.text,
-              deletedRange: intent.replacementRange,
-              selection: TextSelection.collapsed(
-                offset: intent.replacementRange.start,
-              ),
-              composing: TextRange.empty,
-            )
-          : TextEditingDeltaReplacement(
-              oldText: oldValue.text,
-              replacementText: intent.replacementText,
-              replacedRange: intent.replacementRange,
-              selection: TextSelection.collapsed(
-                offset: intent.replacementRange.start,
-              ),
-              composing: TextRange.empty,
-            ),
-    );
+    final TextEditingValue newValue;
 
-    final newValue = oldValue.copyWith(
-      text: widget.controller.plainText,
-      selection: widget.controller.newSelection,
-      composing: TextRange.empty,
-    );
+    // bggRGjQaUbCoE _replaceText
+    if (intent.replacementText.isEmpty) {
+      widget.controller.syncRichText(
+        TextEditingDeltaDeletion(
+          oldText: oldValue.text,
+          deletedRange: intent.replacementRange,
+          selection: .collapsed(offset: intent.replacementRange.start),
+          composing: .empty,
+        ),
+      );
+      newValue = TextEditingValue(
+        text: widget.controller.plainText,
+        selection: widget.controller.newSelection,
+        composing: .empty,
+      );
+    } else {
+      newValue = intent.currentTextEditingValue.replaced(
+        intent.replacementRange,
+        intent.replacementText,
+      );
+      widget.controller.syncRichText(
+        TextEditingDeltaReplacement(
+          oldText: oldValue.text,
+          replacementText: intent.replacementText,
+          replacedRange: intent.replacementRange,
+          selection: newValue.selection,
+          composing: newValue.composing,
+        ),
+      );
+    }
+
     userUpdateTextEditingValue(newValue, intent.cause);
 
     // If there's no change in text and selection (e.g. when selecting and

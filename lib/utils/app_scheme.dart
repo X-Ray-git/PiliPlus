@@ -1,4 +1,6 @@
-import 'dart:async';
+// ignore_for_file: constant_identifier_names
+
+import 'dart:async' show StreamSubscription;
 
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
@@ -352,7 +354,7 @@ abstract final class PiliScheme {
               return true;
             }
             return false;
-          case 'm.bilibili.com':
+          case bilibili_m:
             // bilibili://m.bilibili.com/topic-detail?topic_id=1028161&frommodule=H5&h5awaken=xxx
             final id = uri.queryParameters['topic_id'];
             if (id != null) {
@@ -462,6 +464,15 @@ abstract final class PiliScheme {
     }
   }
 
+  static const b23_tv = 'b23.tv';
+  static const bilibili = 'bilibili.com';
+  static const bilibili_m = 'm.bilibili.com';
+  static const bilibili_t = 't.bilibili.com';
+  static const bilibili_live = 'live.bilibili.com';
+  static const bilibili_space = 'space.bilibili.com';
+  static const bilibili_search = 'search.bilibili.com';
+  static const bilibili_music = 'music.bilibili.com';
+
   static Future<bool> _fullPathPush(
     Uri uri, {
     bool selfHandle = false,
@@ -473,34 +484,25 @@ abstract final class PiliScheme {
 
     String host = uri.host;
 
-    if (selfHandle &&
-        !host.contains('bilibili.com') &&
-        !host.contains('b23.tv')) {
-      return false;
-    }
-
     void launchURL() {
       if (!selfHandle) {
         _toWebview(uri.toString(), off, parameters);
       }
     }
 
-    // b23.tv
-    // bilibili.com
-    // m.bilibili.com
-    // www.bilibili.com
-    // space.bilibili.com
-    // live.bilibili.com
-    // search.bilibili.com
+    if (!host.contains(bilibili) && !host.contains(b23_tv)) {
+      launchURL();
+      return false;
+    }
 
     // redirect
-    if (host.contains('b23.tv')) {
+    if (host.contains(b23_tv)) {
       String? redirectUrl = await UrlUtils.parseRedirectUrl(uri.toString());
       if (redirectUrl != null) {
         uri = Uri.parse(redirectUrl);
         host = uri.host;
       }
-      if (!host.contains('bilibili.com')) {
+      if (!host.contains(bilibili)) {
         launchURL();
         return false;
       }
@@ -509,7 +511,7 @@ abstract final class PiliScheme {
     final String path = uri.path;
     late final queryParameters = uri.queryParameters;
 
-    if (host.contains('t.bilibili.com')) {
+    if (host.contains(bilibili_t)) {
       if (_onPushDynDetail(uri, off)) {
         return true;
       } else if (path.startsWith('/vote')) {
@@ -526,7 +528,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains('live.bilibili.com')) {
+    } else if (host.contains(bilibili_live)) {
       String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
       if (roomId != null) {
         PageUtils.toLiveRoom(int.parse(roomId), off: off);
@@ -534,7 +536,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains('space.bilibili.com')) {
+    } else if (host.contains(bilibili_space)) {
       void toType({
         required String mid,
         required String? type,
@@ -584,7 +586,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains('search.bilibili.com')) {
+    } else if (host.contains(bilibili_search)) {
       String? keyword = uri.queryParameters['keyword'];
       if (keyword != null) {
         PageUtils.toDupNamed(
@@ -596,7 +598,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains('music.bilibili.com')) {
+    } else if (host.contains(bilibili_music)) {
       // music.bilibili.com/pc/music-detail?music_id=MA***
       // music.bilibili.com/h5-music-detail?music_id=MA***
       if (path.contains('music-detail')) {

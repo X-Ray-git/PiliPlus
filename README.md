@@ -306,8 +306,8 @@ git merge upstream/main
 git push origin main
 
 git checkout feature/custom-enhancements
-git rebase main
-git push origin feature/custom-enhancements --force-with-lease
+git merge main
+git push origin feature/custom-enhancements
 ```
 
 ### 构建安装

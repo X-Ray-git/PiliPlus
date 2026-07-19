@@ -4,11 +4,6 @@ import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/search.dart';
-import 'package:PiliPlus/http/user.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -90,8 +85,11 @@ void imageSaveDialog({
                   if (aid != null || bvid != null) ...[
                     // [CUSTOM] Use LaterService for global watch later sync
                     Obx(() {
-                      final String currentBvid = bvid ?? IdUtils.av2bv(aid as int);
-                      final bool isAdded = LaterService.to.isInLater(currentBvid);
+                      final String currentBvid =
+                          bvid ?? IdUtils.av2bv(aid as int);
+                      final bool isAdded = LaterService.to.isInLater(
+                        currentBvid,
+                      );
                       return iconButton(
                         iconSize: iconSize,
                         tooltip: isAdded ? '移除稍后再看' : '稍后再看',
@@ -99,7 +97,11 @@ void imageSaveDialog({
                           SmartDialog.dismiss(),
                           LaterService.to.toggleLater(currentBvid, aid: aid),
                         },
-                        icon: Icon(isAdded ? Icons.watch_later : Icons.watch_later_outlined),
+                        icon: Icon(
+                          isAdded
+                              ? Icons.watch_later
+                              : Icons.watch_later_outlined,
+                        ),
                       );
                     }),
                     iconButton(
@@ -107,12 +109,12 @@ void imageSaveDialog({
                       tooltip: '收藏',
                       onPressed: () async {
                         SmartDialog.dismiss();
-                        
+
                         if (!Accounts.main.isLogin) {
                           SmartDialog.showToast('账号未登录');
                           return;
                         }
-                        
+
                         // 获取aid，如果只有bvid，则通过bvid转换
                         int? videoAid = aid;
                         if (videoAid == null && bvid != null) {
@@ -137,56 +139,56 @@ void imageSaveDialog({
                             return;
                           }
                         }
-                        
+
                         if (videoAid == null) {
                           SmartDialog.showToast('无法获取视频ID');
                           return;
                         }
-                        
+
                         SmartDialog.showLoading(msg: '加载中');
-                        
+
                         // 获取用户收藏夹列表
                         final foldersRes = await FavHttp.videoInFolder(
                           mid: Accounts.main.mid,
                           rid: videoAid,
                           type: 2,
                         );
-                        
+
                         SmartDialog.dismiss();
-                        
+
                         if (!foldersRes.isSuccess) {
                           SmartDialog.showToast('获取收藏夹失败');
                           return;
                         }
-                        
+
                         final folders = foldersRes.data.list ?? [];
                         if (folders.isEmpty) {
                           SmartDialog.showToast('暂无收藏夹，请先创建');
                           return;
                         }
-                        
+
                         final initialSelected = folders
                             .where((f) => f.favState == 1)
                             .map((f) => f.id)
                             .toSet();
-                        
+
                         if (!Get.context!.mounted) return;
-                        
+
                         final result = await FavSelectDialog.show(
                           Get.context!,
                           folders,
                           initialSelected,
                         );
-                        
+
                         if (result == null) return;
-                        
+
                         if (result.add.isEmpty && result.del.isEmpty) {
                           SmartDialog.showToast('未做任何修改');
                           return;
                         }
-                        
+
                         SmartDialog.showLoading(msg: '处理中');
-                        
+
                         final favRes = await FavHttp.favVideo(
                           resources: '$videoAid:2',
                           addIds: result.add.isNotEmpty
@@ -196,9 +198,9 @@ void imageSaveDialog({
                               ? result.del.join(',')
                               : null,
                         );
-                        
+
                         SmartDialog.dismiss();
-                        
+
                         if (favRes.isSuccess) {
                           SmartDialog.showToast('操作成功');
                         } else {

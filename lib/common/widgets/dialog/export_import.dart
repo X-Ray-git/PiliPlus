@@ -1,8 +1,8 @@
 import 'dart:async' show FutureOr;
 import 'dart:convert' show utf8, jsonDecode;
-import 'dart:io' show File;
 
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/storage_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -122,8 +122,7 @@ Future<void> importFromLocalFile<T>({
     allowedExtensions: const ['json', 'txt'],
   );
   if (result != null) {
-    final path = result.xFile.path;
-    final data = await File(path).readAsString();
+    final data = await result.xFile.readAsString();
     final T json;
     try {
       json = jsonDecode(data);
@@ -179,7 +178,7 @@ void importFromInput<T>(
           child: Text(
             '取消',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
+              color: ColorScheme.of(context).outline,
             ),
           ),
         ),
@@ -216,21 +215,19 @@ Future<void> showImportExportDialog<T>(
   builder: (context) {
     const style = TextStyle(fontSize: 15);
     return SimpleDialog(
-      clipBehavior: Clip.hardEdge,
+      clipBehavior: .hardEdge,
       title: Text('导入/导出$title'),
       children: [
-        ListTile(
-          dense: true,
-          title: const Text('导出至剪贴板', style: style),
-          onTap: () {
+        DialogOption(
+          child: const Text('导出至剪贴板', style: style),
+          onPressed: () {
             Get.back();
             exportToClipBoard(onExport: onExport);
           },
         ),
-        ListTile(
-          dense: true,
-          title: const Text('导出文件至本地', style: style),
-          onTap: () {
+        DialogOption(
+          child: const Text('导出文件至本地', style: style),
+          onPressed: () {
             Get.back();
             exportToLocalFile(onExport: onExport, localFileName: localFileName);
           },
@@ -239,18 +236,16 @@ Future<void> showImportExportDialog<T>(
           height: 1,
           color: ColorScheme.of(context).outline.withValues(alpha: 0.1),
         ),
-        ListTile(
-          dense: true,
-          title: const Text('输入', style: style),
-          onTap: () {
+        DialogOption(
+          child: const Text('输入', style: style),
+          onPressed: () {
             Get.back();
             importFromInput<T>(context, title: title, onImport: onImport);
           },
         ),
-        ListTile(
-          dense: true,
-          title: const Text('从剪贴板导入', style: style),
-          onTap: () {
+        DialogOption(
+          child: const Text('从剪贴板导入', style: style),
+          onPressed: () {
             Get.back();
             importFromClipBoard<T>(
               context,
@@ -260,10 +255,9 @@ Future<void> showImportExportDialog<T>(
             );
           },
         ),
-        ListTile(
-          dense: true,
-          title: const Text('从本地文件导入', style: style),
-          onTap: () {
+        DialogOption(
+          child: const Text('从本地文件导入', style: style),
+          onPressed: () {
             Get.back();
             importFromLocalFile<T>(onImport: onImport);
           },

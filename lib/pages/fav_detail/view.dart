@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
@@ -50,83 +52,78 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     padding = MediaQuery.viewPaddingOf(context);
-    return Obx(
-      () {
-        final enableMultiSelect = _favDetailController.enableMultiSelect.value;
-        return popScope(
-          canPop: !enableMultiSelect,
-          onPopInvokedWithResult: (didPop, result) {
-            if (enableMultiSelect) {
-              _favDetailController.handleSelect();
-            }
-          },
-          child: Scaffold(
-            resizeToAvoidBottomInset: false,
-            floatingActionButtonLocation: const NoRightMarginFabLocation(),
-            floatingActionButton: Padding(
-              padding: const EdgeInsets.only(
-                right: kFloatingActionButtonMargin,
-              ),
-              child: Obx(
-                () => _favDetailController.folderInfo.value.mediaCount > 0
-                    ? AnimatedSlide(
-                        offset: _favDetailController.isPlayAll.value
-                            ? Offset.zero
-                            : const Offset(0.75, 0),
-                        duration: const Duration(milliseconds: 120),
-                        child: GestureDetector(
-                          onHorizontalDragDown: (details) =>
-                              _favDetailController.dx =
-                                  details.localPosition.dx,
-                          onHorizontalDragStart: (details) =>
-                              _favDetailController.setIsPlayAll(
-                                details.localPosition.dx <
-                                    _favDetailController.dx,
-                              ),
-                          child: FloatingActionButton.extended(
-                            onPressed: () {
-                              if (_favDetailController.isPlayAll.value) {
-                                _favDetailController.toViewPlayAll();
-                              } else {
-                                _favDetailController.setIsPlayAll(true);
-                              }
-                            },
-                            label: const Text('播放全部'),
-                            icon: const Icon(Icons.playlist_play),
-                          ),
+    return Obx(() {
+      final enableMultiSelect = _favDetailController.enableMultiSelect.value;
+      return popScope(
+        canPop: !enableMultiSelect,
+        onPopInvokedWithResult: (didPop, result) {
+          if (enableMultiSelect) {
+            _favDetailController.handleSelect();
+          }
+        },
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          floatingActionButtonLocation: const NoRightMarginFabLocation(),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(right: kFloatingActionButtonMargin),
+            child: Obx(
+              () => _favDetailController.folderInfo.value.mediaCount > 0
+                  ? AnimatedSlide(
+                      offset: _favDetailController.isPlayAll.value
+                          ? Offset.zero
+                          : const Offset(0.75, 0),
+                      duration: const Duration(milliseconds: 120),
+                      child: GestureDetector(
+                        onHorizontalDragDown: (details) =>
+                            _favDetailController.dx = details.localPosition.dx,
+                        onHorizontalDragStart: (details) =>
+                            _favDetailController.setIsPlayAll(
+                              details.localPosition.dx <
+                                  _favDetailController.dx,
+                            ),
+                        child: FloatingActionButton.extended(
+                          onPressed: () {
+                            if (_favDetailController.isPlayAll.value) {
+                              _favDetailController.toViewPlayAll();
+                            } else {
+                              _favDetailController.setIsPlayAll(true);
+                            }
+                          },
+                          label: const Text('播放全部'),
+                          icon: const Icon(Icons.playlist_play),
                         ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-            body: refreshIndicator(
-              onRefresh: _favDetailController.onRefresh,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                controller: _favDetailController.scrollController,
-                slivers: [
-                  _buildHeader(enableMultiSelect, theme),
-                  SliverPadding(
-                    padding: EdgeInsets.only(
-                      left: padding.left,
-                      right: padding.right,
-                      bottom: padding.bottom + 100,
-                    ),
-                    sliver: Obx(
-                      () => _buildBody(
-                        enableMultiSelect,
-                        theme,
-                        _favDetailController.loadingState.value,
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
-        );
-      },
-    );
+          body: refreshIndicator(
+            onRefresh: _favDetailController.onRefresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              controller: _favDetailController.scrollController,
+              slivers: [
+                _buildHeader(enableMultiSelect, theme),
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    left: padding.left,
+                    right: padding.right,
+                    bottom: padding.bottom + 100,
+                  ),
+                  sliver: Obx(
+                    () => _buildBody(
+                      enableMultiSelect,
+                      theme,
+                      _favDetailController.loadingState.value,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildHeader(bool enableMultiSelect, ThemeData theme) {
@@ -141,14 +138,12 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
                   onPressed: _favDetailController.handleSelect,
                   icon: const Icon(Icons.close_outlined),
                 ),
-                Obx(
-                  () {
-                    return Text(
-                      '已选: ${_favDetailController.checkedCount}',
-                      style: const TextStyle(fontSize: 15),
-                    );
-                  },
-                ),
+                Obx(() {
+                  return Text(
+                    '已选: ${_favDetailController.checkedCount}',
+                    style: const TextStyle(fontSize: 15),
+                  );
+                }),
               ],
             )
           : null,
@@ -206,108 +201,101 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
                 icon: const Icon(Icons.share),
               );
       }),
-      Obx(
-        () {
-          return PopupMenuButton<FavOrderType>(
-            icon: const Icon(Icons.sort),
-            initialValue: _favDetailController.order.value,
-            tooltip: '排序方式',
-            onSelected: (value) => _favDetailController
-              ..order.value = value
-              ..onReload(),
-            itemBuilder: (context) => FavOrderType.values
-                .map(
-                  (e) => PopupMenuItem(
-                    value: e,
-                    child: Text(e.label),
-                  ),
-                )
-                .toList(),
-          );
-        },
-      ),
-      PopupMenuButton(
-        icon: const Icon(Icons.more_vert),
-        itemBuilder: (context) {
-          final isOwner = _favDetailController.isOwner;
-          final folderInfo = _favDetailController.folderInfo.value;
-          return [
-            if (isOwner) ...[
-              PopupMenuItem(
-                onTap: _favDetailController.onSort,
-                child: const Text('排序'),
-              ),
-              PopupMenuItem(
-                onTap: () =>
-                    Get.toNamed(
-                      '/createFav',
-                      parameters: {'mediaId': mediaId},
-                    )?.then((res) {
-                      if (res is FavFolderInfo) {
-                        _favDetailController.folderInfo.value = res;
-                      }
-                    }),
-                child: const Text('编辑信息'),
-              ),
-            ] else
-              PopupMenuItem(
-                onTap: () =>
-                    _favDetailController.onFav(folderInfo.favState == 1),
-                child: Text('${folderInfo.favState == 1 ? '取消' : ''}收藏'),
-              ),
-            if (BiliUtils.isPublicFav(folderInfo.attr))
-              PopupMenuItem(
-                onTap: () => showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (context) => RepostPanel(
-                    rid: _favDetailController.mediaId,
-                    dynType: 4300,
-                    pic: folderInfo.cover,
-                    title: folderInfo.title,
-                    uname: folderInfo.upper?.name,
-                  ),
-                ),
-                child: const Text('分享至动态'),
-              ),
-            PopupMenuItem(
-              onTap: _favDetailController.createShortcut,
-              child: const Text('添加到桌面'),
-            ),
-            if (isOwner) ...<PopupMenuEntry>[
-              PopupMenuItem(
-                onTap: _favDetailController.cleanFav,
-                child: const Text('清除失效内容'),
-              ),
-              if (!BiliUtils.isDefaultFav(folderInfo.attr)) ...[
-                const PopupMenuDivider(height: 12),
+      Obx(() {
+        return PopupMenuButton<FavOrderType>(
+          icon: const Icon(Icons.sort),
+          initialValue: _favDetailController.order.value,
+          tooltip: '排序方式',
+          onSelected: (value) => _favDetailController
+            ..order.value = value
+            ..onReload(),
+          itemBuilder: (context) => FavOrderType.values
+              .map((e) => PopupMenuItem(value: e, child: Text(e.label)))
+              .toList(),
+        );
+      }),
+      if (_favDetailController.account.isLogin)
+        PopupMenuButton(
+          icon: const Icon(Icons.more_vert),
+          itemBuilder: (context) {
+            final isOwner = _favDetailController.isOwner;
+            final folderInfo = _favDetailController.folderInfo.value;
+            return [
+              if (isOwner) ...[
                 PopupMenuItem(
-                  onTap: () => showConfirmDialog(
+                  onTap: _favDetailController.onSort,
+                  child: const Text('排序'),
+                ),
+                PopupMenuItem(
+                  onTap: () =>
+                      Get.toNamed(
+                        '/createFav',
+                        parameters: {'mediaId': mediaId},
+                      )?.then((res) {
+                        if (res is FavFolderInfo) {
+                          _favDetailController.folderInfo.value = res;
+                        }
+                      }),
+                  child: const Text('编辑信息'),
+                ),
+              ] else
+                PopupMenuItem(
+                  onTap: () =>
+                      _favDetailController.onFav(folderInfo.favState == 1),
+                  child: Text('${folderInfo.favState == 1 ? '取消' : ''}收藏'),
+                ),
+              if (BiliUtils.isPublicFav(folderInfo.attr))
+                PopupMenuItem(
+                  onTap: () => showModalBottomSheet(
                     context: context,
-                    title: const Text('确定删除该收藏夹?'),
-                    onConfirm: () =>
-                        FavHttp.deleteFolder(mediaIds: mediaId).then((res) {
-                          if (res.isSuccess) {
-                            SmartDialog.showToast('删除成功');
-                            Get.back(result: true);
-                          } else {
-                            res.toast();
-                          }
-                        }),
-                  ),
-                  child: Text(
-                    '删除',
-                    style: TextStyle(
-                      color: theme.colorScheme.error,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (context) => RepostPanel(
+                      rid: _favDetailController.mediaId,
+                      dynType: 4300,
+                      pic: folderInfo.cover,
+                      title: folderInfo.title,
+                      uname: folderInfo.upper?.name,
                     ),
                   ),
+                  child: const Text('分享至动态'),
                 ),
+              if (Platform.isAndroid)
+                PopupMenuItem(
+                  onTap: _favDetailController.createShortcut,
+                  child: const Text('添加到桌面'),
+                ),
+              if (isOwner) ...<PopupMenuEntry>[
+                PopupMenuItem(
+                  onTap: _favDetailController.cleanFav,
+                  child: const Text('清除失效内容'),
+                ),
+                if (!BiliUtils.isDefaultFav(folderInfo.attr)) ...[
+                  const PopupMenuDivider(height: 12),
+                  PopupMenuItem(
+                    onTap: () => showConfirmDialog(
+                      context: context,
+                      title: const Text('确定删除该收藏夹?'),
+                      onConfirm: () =>
+                          FavHttp.deleteFolder(mediaIds: mediaId).then((res) {
+                            if (res.isSuccess) {
+                              SmartDialog.showToast('删除成功');
+                              Get.back(result: true);
+                            } else {
+                              res.toast();
+                            }
+                          }),
+                    ),
+                    child: Text(
+                      '删除',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ];
-        },
-      ),
+            ];
+          },
+        ),
       const SizedBox(width: 10),
     ];
   }
@@ -346,10 +334,7 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
       TextButton(
         style: btnStyle,
         onPressed: _favDetailController.onRemove,
-        child: Text(
-          '删除',
-          style: TextStyle(color: theme.colorScheme.error),
-        ),
+        child: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
       ),
       const SizedBox(width: 10),
     ];
@@ -371,102 +356,98 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
         ),
         child: SizedBox(
           height: 110,
-          child: Obx(
-            () {
-              final folderInfo = _favDetailController.folderInfo.value;
-              return Row(
-                spacing: 12,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Hero(
-                        tag: _favDetailController.heroTag,
-                        child: NetworkImgLayer(
-                          width: 176,
-                          height: 110,
-                          src: folderInfo.cover,
-                        ),
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Obx(() {
-                          if (_favDetailController.isOwner ||
-                              _favDetailController.loadingState.value
-                                  is! Success) {
-                            return const SizedBox.shrink();
-                          }
-                          bool isFav = folderInfo.favState == 1;
-                          return iconButton(
-                            size: 28,
-                            iconSize: 18,
-                            tooltip: '${isFav ? '取消' : ''}收藏',
-                            onPressed: () => _favDetailController.onFav(isFav),
-                            icon: isFav
-                                ? const Icon(Icons.favorite)
-                                : const Icon(Icons.favorite_border),
-                            bgColor: isFav
-                                ? theme.colorScheme.secondaryContainer
-                                : theme.colorScheme.onInverseSurface,
-                            iconColor: isFav
-                                ? theme.colorScheme.onSecondaryContainer
-                                : theme.colorScheme.onSurfaceVariant,
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                  if (folderInfo.title.isNotEmpty)
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              folderInfo.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: theme.textTheme.titleMedium!.fontSize,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Get.toNamed(
-                              '/member?mid=${folderInfo.upper!.mid}',
-                            ),
-                            child: Text(
-                              folderInfo.upper!.name!,
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (folderInfo.intro?.isNotEmpty == true) ...[
-                            Text(
-                              folderInfo.intro!,
-                              style: style,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                          Text(
-                            '共${folderInfo.mediaCount}条视频 · '
-                            '${BiliUtils.isPublicFavText(folderInfo.attr)}',
-                            style: style,
-                          ),
-                        ],
+          child: Obx(() {
+            final folderInfo = _favDetailController.folderInfo.value;
+            return Row(
+              spacing: 12,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Hero(
+                      tag: _favDetailController.heroTag,
+                      child: NetworkImgLayer(
+                        width: 176,
+                        height: 110,
+                        src: folderInfo.cover,
                       ),
                     ),
-                ],
-              );
-            },
-          ),
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Obx(() {
+                        if (_favDetailController.isOwner ||
+                            _favDetailController.loadingState.value
+                                is! Success) {
+                          return const SizedBox.shrink();
+                        }
+                        bool isFav = folderInfo.favState == 1;
+                        return iconButton(
+                          size: 28,
+                          iconSize: 18,
+                          tooltip: '${isFav ? '取消' : ''}收藏',
+                          onPressed: () => _favDetailController.onFav(isFav),
+                          icon: isFav
+                              ? const Icon(Icons.favorite)
+                              : const Icon(Icons.favorite_border),
+                          bgColor: isFav
+                              ? theme.colorScheme.secondaryContainer
+                              : theme.colorScheme.onInverseSurface,
+                          iconColor: isFav
+                              ? theme.colorScheme.onSecondaryContainer
+                              : theme.colorScheme.onSurfaceVariant,
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+                if (folderInfo.title.isNotEmpty)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            folderInfo.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: theme.textTheme.titleMedium!.fontSize,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Get.toNamed(
+                            '/member?mid=${folderInfo.upper!.mid}',
+                          ),
+                          child: Text(
+                            folderInfo.upper!.name!,
+                            style: TextStyle(color: theme.colorScheme.primary),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (folderInfo.intro?.isNotEmpty == true) ...[
+                          Text(
+                            folderInfo.intro!,
+                            style: style,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Text(
+                          '共${folderInfo.mediaCount}条视频 · '
+                          '${BiliUtils.isPublicFavText(folderInfo.attr)}',
+                          style: style,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          }),
         ),
       ),
     );

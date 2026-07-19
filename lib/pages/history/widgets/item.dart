@@ -4,7 +4,6 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
 import 'package:PiliPlus/http/search.dart';
-import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
@@ -211,58 +210,66 @@ class HistoryItem extends StatelessWidget {
                   final String currentBvid = item.history.bvid ?? bvid;
                   final bool isAdded = LaterService.to.isInLater(currentBvid);
                   return [
-                  if (item.authorMid != null &&
-                      item.authorName?.isNotEmpty == true)
+                    if (item.authorMid != null &&
+                        item.authorName?.isNotEmpty == true)
+                      PopupMenuItem(
+                        onTap: () =>
+                            Get.toNamed('/member?mid=${item.authorMid}'),
+                        height: 38,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              MdiIcons.accountCircleOutline,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '访问：${item.authorName}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (business != 'pgc' &&
+                        item.badge != '番剧' &&
+                        item.tagName?.contains('动画') != true &&
+                        business != 'live' &&
+                        business?.contains('article') != true)
+                      PopupMenuItem(
+                        onTap: () => LaterService.to.toggleLater(currentBvid),
+                        height: 38,
+                        child: Row(
+                          children: [
+                            Icon(
+                              isAdded
+                                  ? MdiIcons.clockCheckOutline
+                                  : Icons.watch_later_outlined,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isAdded ? '移除稍后再看' : '稍后再看',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
                     PopupMenuItem(
-                      onTap: () => Get.toNamed('/member?mid=${item.authorMid}'),
+                      onTap: () => onDelete(item.kid!, business!),
                       height: 38,
-                      child: Row(
+                      child: const Row(
                         children: [
-                          const Icon(
-                            MdiIcons.accountCircleOutline,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '访问：${item.authorName}',
-                            style: const TextStyle(fontSize: 13),
-                          ),
+                          Icon(Icons.close_outlined, size: 16),
+                          SizedBox(width: 6),
+                          Text('删除记录', style: TextStyle(fontSize: 13)),
                         ],
                       ),
                     ),
-                  if (business != 'pgc' &&
-                      item.badge != '番剧' &&
-                      item.tagName?.contains('动画') != true &&
-                      business != 'live' &&
-                      business?.contains('article') != true)
-                    PopupMenuItem(
-                      onTap: () =>
-                          LaterService.to.toggleLater(currentBvid),
-                      height: 38,
-                      child: Row(
-                        children: [
-                          Icon(isAdded ? MdiIcons.clockCheckOutline : Icons.watch_later_outlined, size: 16),
-                          const SizedBox(width: 6),
-                          Text(isAdded ? '移除稍后再看' : '稍后再看', style: const TextStyle(fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  PopupMenuItem(
-                    onTap: () => onDelete(item.kid!, business!),
-                    height: 38,
-                    child: const Row(
-                      children: [
-                        Icon(Icons.close_outlined, size: 16),
-                        SizedBox(width: 6),
-                        Text('删除记录', style: TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ];
-              },
+                  ];
+                },
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
