@@ -1,10 +1,12 @@
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
 import 'package:PiliPlus/http/fav.dart';
+import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/model_video.dart';
+import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
@@ -23,7 +25,8 @@ class _VideoCustomAction {
   final String title;
   final Widget icon;
   final VoidCallback onTap;
-  const _VideoCustomAction(this.title, this.icon, this.onTap);
+  final Widget? child;
+  const _VideoCustomAction(this.title, this.icon, this.onTap, {this.child});
 }
 
 class VideoPopupMenu extends StatelessWidget {
@@ -39,6 +42,192 @@ class VideoPopupMenu extends StatelessWidget {
     this.onRemove,
     this.menuItemHeight = 45,
   });
+
+  int? get _aid {
+    if (videoItem is BaseVideoItemModel) {
+      return (videoItem as BaseVideoItemModel).aid;
+    }
+    if (videoItem is SpaceArchiveItem) {
+      return int.tryParse((videoItem as SpaceArchiveItem).param ?? '');
+    }
+    return null;
+  }
+
+  Future<List<FavFolderInfo>?> _requestFavFolders({
+    required int aid,
+    required int mid,
+  }) async {
+    try {
+      final result = await FavHttp.videoInFolder(mid: mid, rid: aid, type: 2);
+      if (!Accounts.main.isLogin || Accounts.main.mid != mid) {
+        return null;
+      }
+      return switch (result) {
+        Success(:final response) => response.list ?? <FavFolderInfo>[],
+        _ => null,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _favActionRow({
+    required String title,
+    required Widget icon,
+  }) {
+    return Row(
+      children: [
+        icon,
+        const SizedBox(width: 6),
+        Text(title, style: const TextStyle(fontSize: 13)),
+      ],
+    );
+  }
+
+  _VideoCustomAction _buildFavAction(BuildContext context) {
+    final prefetchedAid = _aid;
+    final prefetchedMid = Accounts.main.isLogin ? Accounts.main.mid : null;
+    final foldersFuture =
+        videoItem.bvid?.isNotEmpty == true &&
+            prefetchedAid != null &&
+            prefetchedMid != null
+        ? _requestFavFolders(aid: prefetchedAid, mid: prefetchedMid)
+        : null;
+
+    return _VideoCustomAction(
+      '收藏',
+      const Icon(MdiIcons.starOutline, size: 16),
+      () => _handleFavorite(
+        context,
+        prefetchedAid: prefetchedAid,
+        prefetchedMid: prefetchedMid,
+        foldersFuture: foldersFuture,
+      ),
+      child: foldersFuture == null
+          ? null
+          : FutureBuilder<List<FavFolderInfo>?>(
+              future: foldersFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return _favActionRow(
+                    title: '查询收藏状态',
+                    icon: const SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+
+                final folders = snapshot.data;
+                if (folders == null) {
+                  return _favActionRow(
+                    title: '收藏状态未知',
+                    icon: const Icon(MdiIcons.starOutline, size: 16),
+                  );
+                }
+
+                final isFavorited = folders.any(
+                  (folder) => folder.favState == 1,
+                );
+                return _favActionRow(
+                  title: isFavorited ? '已收藏' : '收藏',
+                  icon: Icon(
+                    isFavorited ? MdiIcons.star : MdiIcons.starOutline,
+                    size: 16,
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Future<void> _handleFavorite(
+    BuildContext context, {
+    required int? prefetchedAid,
+    required int? prefetchedMid,
+    required Future<List<FavFolderInfo>?>? foldersFuture,
+  }) async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('账号未登录');
+      return;
+    }
+
+    final aid = _aid;
+    if (aid == null) {
+      SmartDialog.showToast('无法获取视频ID');
+      return;
+    }
+
+    final mid = Accounts.main.mid;
+    final reusableFuture = prefetchedAid == aid && prefetchedMid == mid
+        ? foldersFuture
+        : null;
+
+    SmartDialog.showLoading(msg: '加载中');
+    List<FavFolderInfo>? folders;
+    try {
+      folders = await reusableFuture;
+      if (folders == null &&
+          Accounts.main.isLogin &&
+          Accounts.main.mid == mid) {
+        folders = await _requestFavFolders(aid: aid, mid: mid);
+      }
+    } finally {
+      SmartDialog.dismiss();
+    }
+
+    if (folders == null) {
+      SmartDialog.showToast('获取收藏夹失败');
+      return;
+    }
+    if (folders.isEmpty) {
+      SmartDialog.showToast('暂无收藏夹，请先创建');
+      return;
+    }
+
+    final initialSelected = folders
+        .where((folder) => folder.favState == 1)
+        .map((folder) => folder.id)
+        .toSet();
+    if (!context.mounted) return;
+
+    final result = await FavSelectDialog.show(
+      context,
+      folders,
+      initialSelected,
+    );
+    if (result == null) return;
+    if (result.add.isEmpty && result.del.isEmpty) {
+      SmartDialog.showToast('未做任何修改');
+      return;
+    }
+    if (!Accounts.main.isLogin || Accounts.main.mid != mid) {
+      SmartDialog.showToast('账号已切换，请重新操作');
+      return;
+    }
+
+    SmartDialog.showLoading(msg: '处理中');
+    LoadingState<void>? favResult;
+    try {
+      favResult = await FavHttp.favVideo(
+        resources: '$aid:2',
+        addIds: result.add.isNotEmpty ? result.add.join(',') : null,
+        delIds: result.del.isNotEmpty ? result.del.join(',') : null,
+      );
+    } catch (_) {
+      favResult = null;
+    } finally {
+      SmartDialog.dismiss();
+    }
+
+    if (favResult?.isSuccess == true) {
+      SmartDialog.showToast('操作成功');
+    } else {
+      SmartDialog.showToast(
+        favResult == null ? '操作失败，请稍后重试' : '操作失败：$favResult',
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,94 +261,7 @@ class VideoPopupMenu extends StatelessWidget {
                     () => LaterService.to.toggleLater(videoItem.bvid!),
                   ),
                   // 收藏
-                  _VideoCustomAction(
-                    '收藏',
-                    const Icon(MdiIcons.starOutline, size: 16),
-                    () async {
-                      if (!Accounts.main.isLogin) {
-                        SmartDialog.showToast('账号未登录');
-                        return;
-                      }
-
-                      SmartDialog.showLoading(msg: '加载中');
-
-                      // 获取视频ID
-                      int? aid;
-                      if (videoItem is BaseVideoItemModel) {
-                        aid = (videoItem as BaseVideoItemModel).aid;
-                      }
-
-                      if (aid == null) {
-                        SmartDialog.dismiss();
-                        SmartDialog.showToast('无法获取视频ID');
-                        return;
-                      }
-
-                      // 获取用户收藏夹列表和当前视频已收藏的文件夹
-                      final foldersRes = await FavHttp.videoInFolder(
-                        mid: Accounts.main.mid,
-                        rid: aid,
-                        type: 2, // 视频类型
-                      );
-
-                      SmartDialog.dismiss();
-
-                      if (!foldersRes.isSuccess) {
-                        SmartDialog.showToast('获取收藏夹失败');
-                        return;
-                      }
-
-                      final folders = foldersRes.data.list ?? [];
-                      if (folders.isEmpty) {
-                        SmartDialog.showToast('暂无收藏夹，请先创建');
-                        return;
-                      }
-
-                      // 已收藏的文件夹ID集合
-                      final initialSelected = folders
-                          .where((f) => f.favState == 1)
-                          .map((f) => f.id)
-                          .toSet();
-
-                      if (!context.mounted) return;
-
-                      // 显示收藏夹选择对话框
-                      final result = await FavSelectDialog.show(
-                        context,
-                        folders,
-                        initialSelected,
-                      );
-
-                      if (result == null) return;
-
-                      // 如果没有任何改变，直接返回
-                      if (result.add.isEmpty && result.del.isEmpty) {
-                        SmartDialog.showToast('未做任何修改');
-                        return;
-                      }
-
-                      SmartDialog.showLoading(msg: '处理中');
-
-                      // 调用收藏API
-                      final favRes = await FavHttp.favVideo(
-                        resources: '$aid:2',
-                        addIds: result.add.isNotEmpty
-                            ? result.add.join(',')
-                            : null,
-                        delIds: result.del.isNotEmpty
-                            ? result.del.join(',')
-                            : null,
-                      );
-
-                      SmartDialog.dismiss();
-
-                      if (favRes.isSuccess) {
-                        SmartDialog.showToast('操作成功');
-                      } else {
-                        SmartDialog.showToast('操作失败：$favRes');
-                      }
-                    },
-                  ),
+                  _buildFavAction(context),
                   // AI总结
                   if (videoItem.cid != null && Pref.enableAi)
                     _VideoCustomAction(
@@ -417,13 +519,15 @@ class VideoPopupMenu extends StatelessWidget {
                 (e) => PopupMenuItem(
                   height: menuItemHeight,
                   onTap: e.onTap,
-                  child: Row(
-                    children: [
-                      e.icon,
-                      const SizedBox(width: 6),
-                      Text(e.title, style: const TextStyle(fontSize: 13)),
-                    ],
-                  ),
+                  child:
+                      e.child ??
+                      Row(
+                        children: [
+                          e.icon,
+                          const SizedBox(width: 6),
+                          Text(e.title, style: const TextStyle(fontSize: 13)),
+                        ],
+                      ),
                 ),
               )
               .toList(),
