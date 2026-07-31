@@ -1,7 +1,5 @@
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
-import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
-import 'package:PiliPlus/http/fav.dart';
-import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/common/widgets/video_favorite_action.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
@@ -44,31 +42,16 @@ class VideoPopupMenu extends StatelessWidget {
   });
 
   int? get _aid {
+    Object? sourceAid;
     if (videoItem is BaseVideoItemModel) {
-      return (videoItem as BaseVideoItemModel).aid;
+      sourceAid = (videoItem as BaseVideoItemModel).aid;
+    } else if (videoItem is SpaceArchiveItem) {
+      sourceAid = (videoItem as SpaceArchiveItem).param;
     }
-    if (videoItem is SpaceArchiveItem) {
-      return int.tryParse((videoItem as SpaceArchiveItem).param ?? '');
-    }
-    return null;
-  }
-
-  Future<List<FavFolderInfo>?> _requestFavFolders({
-    required int aid,
-    required int mid,
-  }) async {
-    try {
-      final result = await FavHttp.videoInFolder(mid: mid, rid: aid, type: 2);
-      if (!Accounts.main.isLogin || Accounts.main.mid != mid) {
-        return null;
-      }
-      return switch (result) {
-        Success(:final response) => response.list ?? <FavFolderInfo>[],
-        _ => null,
-      };
-    } catch (_) {
-      return null;
-    }
+    return VideoFavoriteAction.resolveAid(
+      aid: sourceAid,
+      bvid: videoItem.bvid,
+    );
   }
 
   Widget _favActionRow({
@@ -91,15 +74,18 @@ class VideoPopupMenu extends StatelessWidget {
         videoItem.bvid?.isNotEmpty == true &&
             prefetchedAid != null &&
             prefetchedMid != null
-        ? _requestFavFolders(aid: prefetchedAid, mid: prefetchedMid)
+        ? VideoFavoriteAction.requestFolders(
+            aid: prefetchedAid,
+            mid: prefetchedMid,
+          )
         : null;
 
     return _VideoCustomAction(
       '收藏',
       const Icon(MdiIcons.starOutline, size: 16),
-      () => _handleFavorite(
-        context,
-        prefetchedAid: prefetchedAid,
+      () => VideoFavoriteAction.show(
+        context: context,
+        aid: prefetchedAid,
         prefetchedMid: prefetchedMid,
         foldersFuture: foldersFuture,
       ),
@@ -139,94 +125,6 @@ class VideoPopupMenu extends StatelessWidget {
               },
             ),
     );
-  }
-
-  Future<void> _handleFavorite(
-    BuildContext context, {
-    required int? prefetchedAid,
-    required int? prefetchedMid,
-    required Future<List<FavFolderInfo>?>? foldersFuture,
-  }) async {
-    if (!Accounts.main.isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-
-    final aid = _aid;
-    if (aid == null) {
-      SmartDialog.showToast('无法获取视频ID');
-      return;
-    }
-
-    final mid = Accounts.main.mid;
-    final reusableFuture = prefetchedAid == aid && prefetchedMid == mid
-        ? foldersFuture
-        : null;
-
-    SmartDialog.showLoading(msg: '加载中');
-    List<FavFolderInfo>? folders;
-    try {
-      folders = await reusableFuture;
-      if (folders == null &&
-          Accounts.main.isLogin &&
-          Accounts.main.mid == mid) {
-        folders = await _requestFavFolders(aid: aid, mid: mid);
-      }
-    } finally {
-      SmartDialog.dismiss();
-    }
-
-    if (folders == null) {
-      SmartDialog.showToast('获取收藏夹失败');
-      return;
-    }
-    if (folders.isEmpty) {
-      SmartDialog.showToast('暂无收藏夹，请先创建');
-      return;
-    }
-
-    final initialSelected = folders
-        .where((folder) => folder.favState == 1)
-        .map((folder) => folder.id)
-        .toSet();
-    if (!context.mounted) return;
-
-    final result = await FavSelectDialog.show(
-      context,
-      folders,
-      initialSelected,
-    );
-    if (result == null) return;
-    if (result.add.isEmpty && result.del.isEmpty) {
-      SmartDialog.showToast('未做任何修改');
-      return;
-    }
-    if (!Accounts.main.isLogin || Accounts.main.mid != mid) {
-      SmartDialog.showToast('账号已切换，请重新操作');
-      return;
-    }
-
-    SmartDialog.showLoading(msg: '处理中');
-    LoadingState<void>? favResult;
-    try {
-      favResult = await FavHttp.favVideo(
-        resources: '$aid:2',
-        addIds: result.add.isNotEmpty ? result.add.join(',') : null,
-        delIds: result.del.isNotEmpty ? result.del.join(',') : null,
-      );
-    } catch (_) {
-      favResult = null;
-    } finally {
-      SmartDialog.dismiss();
-    }
-
-    if (favResult?.isSuccess == true) {
-      SmartDialog.showToast('操作成功');
-    } else {
-      SmartDialog.showToast(
-        favResult == null ? '操作失败，请稍后重试' : '操作失败：$favResult',
-      );
-    }
   }
 
   @override
