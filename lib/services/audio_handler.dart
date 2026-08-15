@@ -46,6 +46,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   // 原上游代码移除了 async 且使用 onPlay?.call() ?? ...
   // 由于音频页面的 onPlay 返回 null，会导致 ?? 错误地穿透执行视频播放器的逻辑，导致控制失效。
   // 此处恢复严格的 async/await 顺序以确保逻辑正确分离。
+  // 注意：play() 不做无差别回退——若音频页在听、视频页在栈中暂停，回退会导致双声道同时播放。
+  // playIfExists 内部已有 _playCallBack ?? _instance?.play() 的回退兜底。
   @override
   Future<void> play() async {
     if (onPlay != null) {
@@ -55,14 +57,14 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  // [MOD: 修复蓝牙耳机控制] 同上，修复 onPause 返回 null 时导致的穿透调用问题
+  // [MOD: 修复蓝牙耳机控制] 同上；并改为回退链：
+  // 音频页可能在路由栈中滞留并持有 onPause（其 player 可能已停），
+  // 若独占执行会导致蓝牙暂停指令被"吞掉"且永不作用到正在播放的视频。
+  // 回退链对已停止的一方是幂等空操作，不会误触发。
   @override
   Future<void> pause() async {
-    if (onPause != null) {
-      await onPause!.call();
-    } else {
-      await PlPlayerController.pauseIfExists();
-    }
+    await onPause?.call();
+    await PlPlayerController.pauseIfExists();
   }
 
   @override
