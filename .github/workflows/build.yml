@@ -128,7 +128,9 @@ jobs:
                   # Use manual tag input OR the git tag that triggered the workflow
                   tag_name: ${{ github.event.inputs.tag || github.ref_name }}
                   name: ${{ github.event.inputs.tag || github.ref_name }}
-                  # [MOD: 修复最新版排序] 强制 Github 按照我们的触发顺序将其设为最新 Release
+                  # [CUSTOM] Keep a manually dispatched release attached to the dispatched custom commit.
+                  target_commitish: ${{ github.sha }}
+                  # [CUSTOM: 修复最新版排序] 强制 Github 按照我们的触发顺序将其设为最新 Release
                   make_latest: true
                   files: |
                       PiliPlus_android_*_arm64.apk

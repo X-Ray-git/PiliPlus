@@ -453,11 +453,7 @@ class PlPlayerController with BlockConfigMixin {
     bool notify = true,
     bool isInterrupt = false,
   }) async {
-    // [CUSTOM: 修复蓝牙/线控暂停偶发失效]
-    // playerStatus 由 stream.playing 异步驱动，存在与实际播放状态短暂不一致的窗口；
-    // 原先仅在 isPlaying 时执行，会在该窗口内静默吞掉暂停指令（蓝牙按键、拔出耳机等）。
-    // 放宽为"未结束即执行"：对已暂停的播放器调用 pause() 是幂等空操作。
-    if (_instance?.playerStatus.isCompleted == false) {
+    if (_instance?.playerStatus.isPlaying ?? false) {
       await _instance?.pause(notify: notify, isInterrupt: isInterrupt);
     }
   }

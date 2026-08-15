@@ -32,7 +32,7 @@ git fetch upstream
 # 2. 切换到main分支并快进合并原作者的更新
 echo "🔄 更新本地main分支..."
 git checkout main
-git merge upstream/main
+git merge --ff-only upstream/main
 
 echo "✅ main分支已更新"
 echo ""
@@ -62,12 +62,16 @@ echo ""
 
 # 5. 提示后续步骤
 echo "📝 下一步操作："
-echo "1. 确认 pubspec.yaml 版本号递增（如 2.1.0-mod+553N）"
+echo "1. 确认 pubspec.yaml 的基础版本和 mod 后缀正确；CI 会按提交数生成 Android versionCode"
 echo "2. 将本地 Flutter SDK 切到 pubspec.yaml 要求的精确版本"
 echo "3. 按 lib/scripts/patch.ps1 的列表给 Flutter SDK 打补丁"
 echo "4. flutter pub get && flutter analyze"
 echo "5. flutter build apk --release --target-platform android-arm64 验证"
 echo "6. 验证通过后推送到您的fork：git push origin $BRANCH"
-echo "7. 发版：gh workflow run build.yml --ref $BRANCH --repo X-Ray-git/PiliPlus -f build_android=true -f build_ios=false -f build_mac=false -f build_win_x64=false -f build_linux_x64=false -f tag=v2.1.0-mod.N"
+echo "7. 发版时先在当前 custom 提交创建标签，再仅推送标签到个人仓库："
+echo "   TAG=vX.Y.Z-mod.N"
+echo "   git tag \"\$TAG\" \"$BRANCH\""
+echo "   git push origin \"refs/tags/\$TAG\""
+echo "   标签推送会触发 Android arm64 构建；不要向 upstream 推送任何分支或标签"
 echo ""
 echo "✅ 同步完成！"

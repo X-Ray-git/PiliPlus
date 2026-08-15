@@ -57,14 +57,16 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  // [CUSTOM: 修复蓝牙耳机控制] 同上；并改为回退链：
-  // 音频页可能在路由栈中滞留并持有 onPause（其 player 可能已停），
-  // 若独占执行会导致蓝牙暂停指令被"吞掉"且永不作用到正在播放的视频。
-  // 回退链对已停止的一方是幂等空操作，不会误触发。
+  // [CUSTOM: 修复蓝牙耳机控制]
+  // 音频页和视频播放器仍需互斥分发，避免暂停一个来源时误操作另一个来源，
+  // 尤其不能让已暂停的视频播放器再次释放当前音频页使用的共享音频焦点。
   @override
   Future<void> pause() async {
-    await onPause?.call();
-    await PlPlayerController.pauseIfExists();
+    if (onPause != null) {
+      await onPause!.call();
+    } else {
+      await PlPlayerController.pauseIfExists();
+    }
   }
 
   @override
@@ -143,7 +145,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
             ),
         ],
         playing: playing,
-        // [CUSTOM: 修复蓝牙耳机控制] 显式声明播放/暂停的动作，强制现代 Android (12+) 系统将蓝牙耳机按键事件路由给 App
+        // [CUSTOM] Declare every media-session action supported by this handler.
         systemActions: const {
           MediaAction.seek,
           MediaAction.play,
@@ -168,6 +170,27 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
     if (_item.isEmpty) return;
     setPlaybackState(status, isBuffering, isLive);
+  }
+
+  // [CUSTOM: 修复蓝牙耳机控制]
+  // 播放状态事件可能早于视频详情返回；当时 _item 为空，状态更新会被忽略。
+  // MediaItem 晚到后必须从底层播放器补同步一次，否则 Android MediaSession
+  // 会一直停留在 idle/playing=false，耳机的播放/暂停键也会被错误分发。
+  void _syncPlaybackStateFromPlayer() {
+    final player = PlPlayerController.instance;
+    if (player == null) return;
+
+    final state = player.videoPlayerController?.state;
+    final status = state?.completed == true
+        ? PlayerStatus.completed
+        : state?.playing == true
+        ? PlayerStatus.playing
+        : PlayerStatus.paused;
+    setPlaybackState(
+      status,
+      player.isBuffering.value,
+      player.isLive,
+    );
   }
 
   void onVideoDetailChange(
@@ -264,6 +287,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     if (!PlPlayerController.instanceExists()) return;
     _item.add(mediaItem);
     setMediaItem(mediaItem);
+    _syncPlaybackStateFromPlayer();
   }
 
   void onVideoDetailDispose(String herotag) {
