@@ -131,6 +131,9 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   void setMediaItem(MediaItem newMediaItem) {
     if (!enableBackgroundPlay) return;
+    // [CUSTOM] A new/restored item must publish its state even at the same position.
+    _lastConfig = null;
+    _lastPos = null;
     // if (kDebugMode) {
     //   debugPrint("此时调用栈为：");
     //   debugPrint(newMediaItem);
@@ -161,11 +164,12 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       if (_lastPos != null) {
         final pos = position.inSeconds;
         final lastPos = _lastPos!.inSeconds;
-        _lastPos = position;
         if (pos == lastPos && pos != 0) return;
       }
     }
     _lastConfig = newConfig;
+    // [CUSTOM] Seed and update the last published position so deduplication runs.
+    _lastPos = position;
 
     final AudioProcessingState processingState;
     final bool playing;
