@@ -10,7 +10,9 @@
 <div align="center">
     <h1>PiliPlus</h1>
 <div align="center">
-    
+
+中文 | [English](README.en.md)
+
 ![GitHub repo size](https://img.shields.io/github/repo-size/bggRGjQaUbCoE/PiliPlus) 
 ![GitHub Repo stars](https://img.shields.io/github/stars/bggRGjQaUbCoE/PiliPlus) 
 ![GitHub all releases](https://img.shields.io/github/downloads/bggRGjQaUbCoE/PiliPlus/total) 
@@ -216,7 +218,7 @@
 
 ## 下载
 
-可以通过右侧release进行下载或拉取代码到本地进行编译
+可以从 [Releases](https://github.com/bggRGjQaUbCoE/PiliPlus/releases) 下载，或克隆仓库拉取代码后在本地编译。
 
 <br/>
 
@@ -247,11 +249,11 @@
 
 ## Star History
 
-<a href="https://www.star-history.com/#bggRGjQaUbCoE/PiliPlus&Date">
+<a href="https://star-history.dera.page/#bggRGjQaUbCoE/PiliPlus&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
  </picture>
 </a>
 
@@ -298,29 +300,74 @@ origin: X-Ray-git/PiliPlus (本仓库)
 git remote add upstream https://github.com/bggRGjQaUbCoE/PiliPlus.git
 ```
 
-同步更新：
+同步更新前保持工作区干净，运行：
 ```bash
-git fetch upstream
-git checkout main
-git merge upstream/main
-git push origin main
+bash sync_upstream.sh
+```
+脚本先快进本地 `main`，再把它合并到 `feature/custom-enhancements`，并在合并前创建备份分支。合并停在提交之前，便于处理冲突和验证；不会推送或发布。检查相对 `main` 的差异时，除了 `[CUSTOM]` 标记，还要核对收藏、稍后再看、桌面快捷方式和媒体控制入口。
 
-git checkout feature/custom-enhancements
-git merge main
-git push origin feature/custom-enhancements
+验证完成后提交合并，需要同步远程时再推送：
+```bash
+git commit
+git push origin main feature/custom-enhancements
 ```
 
 ### 构建安装
 
-```bash
-git clone https://github.com/X-Ray-git/PiliPlus.git
-cd PiliPlus
-git checkout feature/custom-enhancements
+当前基线为上游 `1edcc4677`（2.1.6），使用 **Flutter 3.47.7 / Dart 3.13.5**。后续以 `pubspec.yaml` 为准。上游依赖修改过的框架 API，原版 SDK 不能直接编译。
 
+建议使用独立 SDK 和依赖缓存，避免改动其他项目的开发环境。以下为 macOS/Linux 的 Android 构建流程，在仓库根目录执行：
+
+```bash
+export FLUTTER_ROOT="$HOME/dev/flutter-piliplus-3.47.7"
+export PUB_CACHE="$HOME/dev/piliplus-pub-cache"
+git clone --depth 1 --branch 3.47.7 https://github.com/flutter/flutter.git "$FLUTTER_ROOT"
+export PATH="$FLUTTER_ROOT/bin:$PATH"
+REPO_ROOT="$PWD"
+
+# 必须使用绝对补丁路径；仅对全新 SDK 执行一次。
+for patch in modal_barrier text_selection mouse_cursor image_anim layout_builder \
+  navigation_drawer popup_menu fab null_safety_for_selectable_region \
+  selectable_region editable_text text_field scroll_position scrollable \
+  scrollable_gesture draggable_scrollable_sheet scaffold text text_painter \
+  sliver refresh_indicator double_tap_gesture bottom_sheet_android scroll_view navigator; do
+  git -C "$FLUTTER_ROOT" apply "$REPO_ROOT/lib/scripts/$patch.patch" || exit 1
+done
 flutter pub get
-flutter build apk --release
-flutter install
+
+# 2.1.6 新增 material_ui 补丁。当前 lock 固定为 1.8.0。
+MATERIAL_ROOT="$PUB_CACHE/hosted/pub.dev/material_ui-1.8.0"
+for patch in modal_barrier_material navigation_drawer popup_menu fab text_field \
+  scaffold refresh_indicator tabs bottom_sheet_android; do
+  git -C "$MATERIAL_ROOT" apply "$REPO_ROOT/lib/scripts/material/$patch.patch" || exit 1
+done
+
+flutter analyze --no-pub
+flutter test --no-pub
 ```
+
+补丁列表以 `lib/scripts/patch.ps1` 为准；依赖升级后同时检查 `.dart_tool/package_config.json` 中的实际包位置。不要反复给同一 SDK 或包应用补丁。上游 PowerShell 脚本用于 CI，会重置 SDK、修改全局 Git 身份并重新下载组件包，不要直接用于日常共享环境。`analyze` 目前存在上游已有的 info 级提示，应重点确认没有新增错误或警告。
+
+在完成本地合并提交后生成构建元数据，再构建 APK：
+
+```bash
+python3 - <<'PYBUILD'
+import json, subprocess, time
+from pathlib import Path
+commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+code = int(subprocess.check_output(['git', 'rev-list', '--count', 'HEAD'])) + 407
+base = next(line.split(':', 1)[1].strip().split('-')[0].split('+')[0]
+            for line in Path('pubspec.yaml').read_text().splitlines() if line.startswith('version:'))
+Path('pili_release.json').write_text(json.dumps({
+    'pili.name': f'{base}-{commit[:9]}', 'pili.code': code,
+    'pili.hash': commit, 'pili.time': int(time.time()),
+}))
+PYBUILD
+flutter build apk --release --target-platform android-arm64 --no-pub \
+  --dart-define-from-file=pili_release.json
+```
+
+产物位于 `build/app/outputs/flutter-apk/app-release.apk`。真机重点检查冷启动收藏夹快捷方式、三种收藏入口、稍后再看增删/切换账号、通知栏和蓝牙播放暂停。应用内“检查更新”仍保持上游来源。
 
 ### 许可证
 

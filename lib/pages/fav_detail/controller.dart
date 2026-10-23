@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -9,6 +11,7 @@ import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
 import 'package:PiliPlus/pages/common/multi_select/multi_select_controller.dart';
+import 'package:PiliPlus/pages/common/page_order_mixin.dart';
 import 'package:PiliPlus/pages/fav_sort/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
@@ -17,10 +20,10 @@ import 'package:PiliPlus/utils/shortcut_helper.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
 
 mixin BaseFavController
     on
@@ -77,7 +80,7 @@ mixin BaseFavController
 
 class FavDetailController
     extends MultiSelectController<FavDetailData, FavDetailItemModel>
-    with BaseFavController {
+    with BaseFavController, PageOrderMixin {
   @override
   late int mediaId;
   late String heroTag;
@@ -100,6 +103,14 @@ class FavDetailController
   }
 
   @override
+  int get count => folderInfo.value.mediaCount;
+
+  @override
+  int get ps => _ps;
+
+  static const _ps = 20;
+
+  @override
   void onInit() {
     super.onInit();
 
@@ -114,8 +125,15 @@ class FavDetailController
 
   @override
   List<FavDetailItemModel>? getDataList(FavDetailData response) {
-    if (response.hasMore == false) {
+    if (pageDesc) {
+      if (page == 1) {
+        isEnd = true;
+      }
+    } else if (response.hasMore == false) {
       isEnd = true;
+    }
+    if (pageDesc) {
+      return response.medias?.reversed.toList();
     }
     return response.medias;
   }
@@ -147,7 +165,7 @@ class FavDetailController
   Future<LoadingState<FavDetailData>> customGetData() =>
       FavHttp.userFavFolderDetail(
         pn: page,
-        ps: 20,
+        ps: _ps,
         mediaId: mediaId,
         order: order.value,
       );
@@ -196,7 +214,7 @@ class FavDetailController
     final res = await FavHttp.cleanFav(mediaId: mediaId);
     if (res.isSuccess) {
       SmartDialog.showToast('清除成功');
-      Future.delayed(const Duration(milliseconds: 200), onReload);
+      Timer(const Duration(milliseconds: 200), onReload);
     } else {
       res.toast();
     }
@@ -230,7 +248,7 @@ class FavDetailController
               'oid': item.id,
               'favTitle': folder.title,
               'count': folder.mediaCount,
-              'desc': true,
+              'desc': !pageDesc,
               if (index != null) 'isContinuePlaying': index != 0,
               'isOwner': isOwner,
             }
@@ -238,7 +256,7 @@ class FavDetailController
     );
   }
 
-  /// 创建收藏夹桌面快捷方式
+  /// [CUSTOM] 创建收藏夹桌面快捷方式
   Future<void> createShortcut() async {
     final folder = folderInfo.value;
 
@@ -284,7 +302,8 @@ class FavDetailController
     );
 
     if (success) {
-      SmartDialog.showToast('快捷方式已添加到桌面');
+      // [CUSTOM] The launcher still needs the user to confirm this request.
+      SmartDialog.showToast('已请求添加快捷方式，请在桌面确认');
     } else {
       SmartDialog.showToast('添加快捷方式失败');
     }

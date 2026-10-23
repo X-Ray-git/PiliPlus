@@ -4,9 +4,9 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class VideoFavoriteAction {
   static int? resolveAid({Object? aid, String? bvid}) {
@@ -51,10 +51,10 @@ abstract final class VideoFavoriteAction {
     required int? aid,
     required int? prefetchedMid,
     required Future<List<FavFolderInfo>?>? foldersFuture,
-    bool dismissCurrentDialog = false,
+    bool popCurrentRoute = false,
   }) async {
-    if (dismissCurrentDialog) {
-      SmartDialog.dismiss();
+    if (popCurrentRoute) {
+      Get.back();
     }
     if (!Accounts.main.isLogin) {
       SmartDialog.showToast('账号未登录');
@@ -94,7 +94,7 @@ abstract final class VideoFavoriteAction {
         .where((folder) => folder.favState == 1)
         .map((folder) => folder.id)
         .toSet();
-    final dialogContext = dismissCurrentDialog ? Get.context : context;
+    final dialogContext = popCurrentRoute ? Get.context : context;
     if (dialogContext == null || !dialogContext.mounted) return;
 
     final result = await FavSelectDialog.show(

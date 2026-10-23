@@ -94,7 +94,7 @@ jobs:
                   if [ ! -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ]; then
                     echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
                     echo storeFile='key.jks' >> android/key.properties
-                    
+
                     STORE_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
                     if [ -z "$STORE_PASS" ]; then STORE_PASS="android"; fi
                     echo "storePassword=$STORE_PASS" >> android/key.properties
@@ -108,13 +108,13 @@ jobs:
                     echo "keyPassword=$KEY_PASS" >> android/key.properties
                   fi
 
+            # [CUSTOM] PR builds also require version metadata.
             - name: Set and Extract version
-              if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
               shell: pwsh
               run: lib/scripts/build.ps1 android
 
             - name: flutter build apk
-              run: flutter build apk --release --target-platform android-arm64 --dart-define-from-file=pili_release.json --pub
+              run: flutter build apk --release --target-platform android-arm64 --dart-define-from-file=pili_release.json --no-pub
 
             - name: rename
               run: mv build/app/outputs/flutter-apk/app-release.apk "PiliPlus_android_${{ env.version }}_arm64.apk"

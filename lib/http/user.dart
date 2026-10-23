@@ -14,6 +14,10 @@ import 'package:PiliPlus/models_new/space_setting/data.dart';
 import 'package:PiliPlus/models_new/sub/sub/data.dart';
 import 'package:PiliPlus/models_new/user_real_name/data.dart';
 import 'package:PiliPlus/models_new/video/video_tag/data.dart';
+// [CUSTOM] Publish successful watch-later changes from every API caller.
+import 'package:PiliPlus/services/later_service.dart';
+import 'package:PiliPlus/utils/id_utils.dart';
+import 'package:get/get.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/app_sign.dart';
@@ -58,14 +62,15 @@ abstract final class UserHttp {
   // 稍后再看
   static Future<LoadingState<LaterData>> seeYouLater({
     required int page,
-    // [CUSTOM] Added `ps` parameter for global watch later sync (Custom Feature)
-    int ps = 20,
     int viewed = 0,
     String keyword = '',
     bool asc = false,
+    int ps = 20,
+    Account? account,
   }) async {
     final res = await Request().get(
       Api.seeYouLater,
+      options: Options(extra: {'account': account ?? Accounts.main}),
       queryParameters: await WbiSign.makSign({
         'pn': page,
         'ps': ps,
@@ -89,12 +94,13 @@ abstract final class UserHttp {
     int? max,
     int? viewAt,
     Account? account,
+    int ps = 20,
   }) async {
     final res = await Request().get(
       Api.historyList,
       queryParameters: {
         'type': type,
-        'ps': 20,
+        'ps': ps,
         'max': max ?? 0,
         'view_at': viewAt ?? 0,
       },
@@ -172,17 +178,23 @@ abstract final class UserHttp {
     String? bvid,
     Object? aid,
   }) async {
+    final account = Accounts.main;
     assert(aid != null || bvid != null);
     final res = await Request().post(
       Api.toViewLater,
       data: {
         'aid': ?aid,
         'bvid': ?bvid,
-        'csrf': Accounts.main.csrf,
+        'csrf': account.csrf,
       },
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
     );
     if (res.data['code'] == 0) {
+      // [CUSTOM] Update cache only for the account that made this request.
+      _recordLaterChange(account, bvid ?? aid.toString(), true);
       SmartDialog.showToast('yeah！稍后再看');
       return const Success(null);
     } else {
@@ -193,16 +205,22 @@ abstract final class UserHttp {
 
   // 移除已观看
   static Future<LoadingState<void>> toViewDel({required String aids}) async {
+    final account = Accounts.main;
     final Map<String, dynamic> params = {
-      'csrf': Accounts.main.csrf,
+      'csrf': account.csrf,
       'resources': aids,
     };
     final res = await Request().post(
       Api.toViewDel,
       data: params,
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
     );
     if (res.data['code'] == 0) {
+      // [CUSTOM] Includes bulk removal and removal after playback.
+      _recordLaterChange(account, aids, false);
       SmartDialog.showToast('yeah！成功移除');
       return const Success(null);
     } else {
@@ -232,19 +250,43 @@ abstract final class UserHttp {
 
   // 清空稍后再看 // clean_type: null->all, 1->invalid, 2->viewed
   static Future<LoadingState<void>> toViewClear([int? cleanType]) async {
+    final account = Accounts.main;
     final res = await Request().post(
       Api.toViewClear,
       data: {
         'clean_type': ?cleanType,
-        'csrf': Accounts.main.csrf,
+        'csrf': account.csrf,
       },
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
     );
     if (res.data['code'] == 0) {
+      // [CUSTOM] Full clear is immediate; filtered clear reloads the snapshot.
+      if (Get.isRegistered<LaterService>()) {
+        LaterService.to.recordClear(account, cleanType);
+      }
       return const Success(null);
     } else {
       return Error(res.data['message']);
     }
+  }
+
+  // [CUSTOM] The delete API accepts both numeric aids and BV identifiers.
+  static void _recordLaterChange(Account account, String ids, bool present) {
+    if (!Get.isRegistered<LaterService>()) return;
+    final bvids = <String>[];
+    for (final raw in ids.split(',')) {
+      final id = raw.trim();
+      if (IdUtils.bvRegexExact.hasMatch(id)) {
+        bvids.add(id);
+      } else {
+        final aid = int.tryParse(id);
+        if (aid != null && aid > 0) bvids.add(IdUtils.av2bv(aid));
+      }
+    }
+    LaterService.to.recordChange(account, bvids, present);
   }
 
   // 删除历史记录
@@ -408,7 +450,7 @@ abstract final class UserHttp {
         "accused_uid": mid,
         "dynamic_id": dynId,
         "reason_type": reasonType,
-        "reason_desc": reasonType == 0 ? reasonDesc : null,
+        "reason_desc": reasonDesc,
       },
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );

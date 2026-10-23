@@ -1,51 +1,76 @@
+// [CUSTOM] Share favorite queries and global watch-later state across menus.
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/common/widgets/video_favorite_action.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
+import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 const _iconSize = 20.0;
+
+void showPgcCover({
+  required String? title,
+  required String? cover,
+  dynamic aid,
+  String? bvid,
+}) => imageSaveDialog(
+  title: title,
+  cover: cover,
+  aid: aid,
+  bvid: bvid,
+  orientation: .portrait,
+  aspectRatio: Style.aspectRatio3x4,
+);
 
 void imageSaveDialog({
   required String? title,
   required String? cover,
   dynamic aid,
   String? bvid,
+  Orientation orientation = .landscape,
+  double aspectRatio = Style.aspectRatio16x9,
 }) {
-  // [CUSTOM] Prefetch fav folder state for the save dialog
+  // [CUSTOM] One favorite-state request per opened cover menu.
   final videoAid = VideoFavoriteAction.resolveAid(aid: aid, bvid: bvid);
+  final currentBvid =
+      bvid ?? (videoAid == null ? null : IdUtils.av2bv(videoAid));
   final prefetchedMid = Accounts.main.isLogin ? Accounts.main.mid : null;
   final foldersFuture = videoAid != null && prefetchedMid != null
-      ? VideoFavoriteAction.requestFolders(
-          aid: videoAid,
-          mid: prefetchedMid,
-        )
+      ? VideoFavoriteAction.requestFolders(aid: videoAid, mid: prefetchedMid)
       : null;
-  final double imgWidth = MediaQuery.sizeOf(Get.context!).shortestSide - 16;
-  SmartDialog.show(
-    animationType: .centerScale_otherSlide,
-    builder: (context) {
-      final colorScheme = ColorScheme.of(context);
-      final height = imgWidth / Style.aspectRatio16x9;
-      return Padding(
-        padding: const .symmetric(horizontal: Style.safeSpace),
-        child: DecoratedBox(
-          decoration: _ImageDecoration(
-            imageHeight: height,
-            color: colorScheme.surface,
-            borderRadius: const .all(Style.imgRadius),
-          ),
-          child: SizedBox(
-            width: imgWidth,
+  Get.key.currentState!.push(
+    PublishRoute(
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        final colorScheme = ColorScheme.of(context);
+        final double width, height;
+        switch (orientation) {
+          case .portrait:
+            height = MediaQuery.sizeOf(context).shortestSide * 0.8;
+            width = height * aspectRatio;
+          case .landscape:
+            width = MediaQuery.sizeOf(context).shortestSide - 16;
+            height = width / aspectRatio;
+        }
+
+        return Center(
+          child: Container(
+            width: width,
+            margin: const .symmetric(horizontal: Style.safeSpace),
+            decoration: _ImageDecoration(
+              imageHeight: height,
+              color: colorScheme.surface,
+              borderRadius: const .all(Style.imgRadius),
+            ),
             child: Column(
               mainAxisSize: .min,
               children: [
@@ -53,7 +78,7 @@ void imageSaveDialog({
                   child: NetworkImgLayer(
                     src: cover,
                     quality: 100,
-                    width: imgWidth,
+                    width: width,
                     height: height,
                     borderRadius: const .vertical(top: Style.imgRadius),
                   ),
@@ -66,17 +91,17 @@ void imageSaveDialog({
                         Expanded(
                           child: SelectionText(
                             title,
-                            style: const TextStyle(fontSize: 14),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurface,
+                            ),
                           ),
                         )
                       else
                         const Spacer(),
-                      if (aid != null || bvid != null) ...[
+                      if (currentBvid != null) ...[
                         // [CUSTOM] Use LaterService for global watch later sync
                         Obx(() {
-                          final String currentBvid = bvid ?? IdUtils.av2bv(
-                            aid as int,
-                          );
                           final bool isAdded = LaterService.to.isInLater(
                             currentBvid,
                           );
@@ -84,8 +109,11 @@ void imageSaveDialog({
                             iconSize: _iconSize,
                             tooltip: isAdded ? '移除稍后再看' : '稍后再看',
                             onPressed: () => {
-                              SmartDialog.dismiss(),
-                              LaterService.to.toggleLater(currentBvid, aid: aid),
+                              Get.back(),
+                              LaterService.to.toggleLater(
+                                currentBvid,
+                                aid: videoAid,
+                              ),
                             },
                             icon: Icon(
                               isAdded
@@ -100,10 +128,13 @@ void imageSaveDialog({
                           builder: (context, snapshot) {
                             final isLoading =
                                 foldersFuture != null &&
-                                snapshot.connectionState != ConnectionState.done;
+                                snapshot.connectionState !=
+                                    ConnectionState.done;
                             final folders = snapshot.data;
                             final isFavorited =
-                                folders?.any((folder) => folder.favState == 1) ==
+                                folders?.any(
+                                  (folder) => folder.favState == 1,
+                                ) ==
                                 true;
                             final tooltip = foldersFuture == null
                                 ? '收藏'
@@ -123,7 +154,7 @@ void imageSaveDialog({
                                 aid: videoAid,
                                 prefetchedMid: prefetchedMid,
                                 foldersFuture: foldersFuture,
-                                dismissCurrentDialog: true,
+                                popCurrentRoute: true,
                               ),
                               icon: isLoading
                                   ? const SizedBox.square(
@@ -147,10 +178,20 @@ void imageSaveDialog({
                             iconSize: _iconSize,
                             tooltip: '分享',
                             onPressed: () {
-                              SmartDialog.dismiss();
+                              Get.back();
                               ImageUtils.onShareImg(cover);
                             },
                             icon: const Icon(Icons.share),
+                          )
+                        else
+                          iconButton(
+                            iconSize: 18,
+                            tooltip: '复制链接',
+                            onPressed: () {
+                              Get.back();
+                              Utils.copyText(cover);
+                            },
+                            icon: const Icon(Icons.copy),
                           ),
                         iconButton(
                           iconSize: _iconSize,
@@ -160,7 +201,7 @@ void imageSaveDialog({
                               cover,
                             ]);
                             if (saveStatus) {
-                              SmartDialog.dismiss();
+                              Get.back();
                             }
                           },
                           icon: const Icon(Icons.download),
@@ -172,9 +213,14 @@ void imageSaveDialog({
               ],
             ),
           ),
-        ),
-      );
-    },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          ScaleTransition(
+            scale: animation,
+            child: child,
+          ),
+    ),
   );
 }
 
@@ -204,11 +250,12 @@ class _ImageDecoration extends Decoration {
     }
     return other is _ImageDecoration &&
         other.color == color &&
-        other.borderRadius == borderRadius;
+        other.borderRadius == borderRadius &&
+        imageHeight == other.imageHeight;
   }
 
   @override
-  int get hashCode => Object.hash(color, borderRadius);
+  int get hashCode => Object.hash(color, borderRadius, imageHeight);
 
   @override
   bool hitTest(Size size, Offset position, {TextDirection? textDirection}) {

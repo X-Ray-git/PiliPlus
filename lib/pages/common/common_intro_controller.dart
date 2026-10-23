@@ -20,9 +20,9 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract class CommonIntroController extends GetxController
     with GetSingleTickerProviderStateMixin, TripleMixin, FavMixin {
@@ -31,6 +31,7 @@ abstract class CommonIntroController extends GetxController
 
   // 是否稍后再看
   final RxBool hasLater = false.obs;
+  Worker? _laterWorker;
 
   final Rx<List<VideoTagItem>?> videoTags = Rx<List<VideoTagItem>?>(null);
 
@@ -80,7 +81,7 @@ abstract class CommonIntroController extends GetxController
     cid = RxInt(args['cid']);
 
     // [CUSTOM] Use LaterService for global watch later sync
-    ever(LaterService.to.laterBvids, (_) {
+    _laterWorker = ever(LaterService.to.laterBvids, (_) {
       hasLater.value = LaterService.to.isInLater(bvid);
     });
     hasLater.value = LaterService.to.isInLater(bvid);
@@ -120,6 +121,7 @@ abstract class CommonIntroController extends GetxController
 
   @override
   void onClose() {
+    _laterWorker?.dispose();
     cancelTimer();
     super.onClose();
   }
@@ -245,7 +247,7 @@ mixin FavMixin on TripleMixin {
             this.hasFav.toggle();
             SmartDialog.showToast('${hasFav ? '取消' : ''}收藏成功');
           } else {
-            res.toast();
+            result.toast();
           }
         } else {
           SmartDialog.dismiss();

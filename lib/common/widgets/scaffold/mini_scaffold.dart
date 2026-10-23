@@ -2,9 +2,9 @@ import 'dart:async' show Completer;
 
 import 'package:PiliPlus/common/widgets/scaffold/bottom_sheet.dart';
 import 'package:PiliPlus/common/widgets/scaffold/bottom_sheet_layout.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MiniScaffold extends StatefulWidget {
   const MiniScaffold({
@@ -50,6 +50,7 @@ class MiniScaffoldState extends State<MiniScaffold>
     BoxConstraints? constraints,
     bool? enableDrag,
     bool shouldDisposeAnimationController = true,
+    double dragHeight = kBottomSheetDragHeight,
   }) {
     final completer = Completer<void>();
     final bottomSheetKey = GlobalKey<StandardBottomSheetState>();
@@ -92,6 +93,7 @@ class MiniScaffoldState extends State<MiniScaffold>
       key: bottomSheetKey,
       animationController: animationController,
       enableDrag: enableDrag ?? true,
+      dragHeight: dragHeight,
       onClosing: () {
         if (_currentBottomSheet == null) {
           return;
@@ -138,6 +140,7 @@ class MiniScaffoldState extends State<MiniScaffold>
     bool? enableDrag,
     AnimationController? transitionAnimationController,
     AnimationStyle? sheetAnimationStyle,
+    double dragHeight = kBottomSheetDragHeight,
   }) {
     _closeCurrentBottomSheet();
     final AnimationController controller =
@@ -153,6 +156,7 @@ class MiniScaffoldState extends State<MiniScaffold>
         animationController: controller,
         constraints: constraints,
         enableDrag: enableDrag,
+        dragHeight: dragHeight,
         shouldDisposeAnimationController: transitionAnimationController == null,
       );
     });
@@ -179,13 +183,18 @@ class _StandardBottomSheet extends StandardBottomSheet {
     super.isPersistent,
     super.constraints,
     super.onDispose,
+    this.dragHeight = kBottomSheetDragHeight,
   });
 
+  final double dragHeight;
+
   @override
-  StandardBottomSheetState createState() => _StandardBottomSheetState();
+  StandardBottomSheetState<_StandardBottomSheet> createState() =>
+      _StandardBottomSheetState();
 }
 
-class _StandardBottomSheetState extends StandardBottomSheetState {
+class _StandardBottomSheetState
+    extends StandardBottomSheetState<_StandardBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final child = BottomSheet_(
@@ -196,6 +205,7 @@ class _StandardBottomSheetState extends StandardBottomSheetState {
       onClosing: widget.onClosing!,
       builder: widget.builder,
       constraints: widget.constraints,
+      dragHeight: widget.dragHeight,
     );
     if (widget.enableDrag) {
       return AnimatedBuilder(

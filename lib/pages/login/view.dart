@@ -14,11 +14,11 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -217,40 +217,52 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         const SizedBox(height: 20),
         const Text('使用账号密码登录'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 20),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: TextField(
-            controller: _loginPageCtr.usernameTextController,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.account_box),
-              border: const UnderlineInputBorder(),
-              labelText: '账号',
-              hintText: '邮箱/手机号',
-              suffixIcon: IconButton(
-                onPressed: _loginPageCtr.usernameTextController.clear,
-                icon: const Icon(Icons.clear),
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: TextField(
-            obscureText: !showPassword,
-            keyboardType: TextInputType.visiblePassword,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
-            controller: _loginPageCtr.passwordTextController,
-            autofillHints: const [AutofillHints.password],
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.password),
-              border: const UnderlineInputBorder(),
-              labelText: '密码',
-              suffixIcon: IconButton(
-                onPressed: _loginPageCtr.passwordTextController.clear,
-                icon: const Icon(Icons.clear),
-              ),
+          padding: const .symmetric(horizontal: 20),
+          child: AutofillGroup(
+            child: Column(
+              spacing: 10,
+              children: [
+                TextField(
+                  controller: _loginPageCtr.usernameTextController,
+                  autofillHints: const [
+                    AutofillHints.telephoneNumber,
+                    AutofillHints.email,
+                  ],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r"\s")),
+                  ],
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.account_box),
+                    border: const UnderlineInputBorder(),
+                    labelText: '账号',
+                    hintText: '邮箱/手机号',
+                    suffixIcon: IconButton(
+                      onPressed: _loginPageCtr.usernameTextController.clear,
+                      icon: const Icon(Icons.clear),
+                    ),
+                  ),
+                ),
+                TextField(
+                  obscureText: !showPassword,
+                  keyboardType: TextInputType.visiblePassword,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r"\s")),
+                  ],
+                  controller: _loginPageCtr.passwordTextController,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.password),
+                    border: const UnderlineInputBorder(),
+                    labelText: '密码',
+                    suffixIcon: IconButton(
+                      onPressed: _loginPageCtr.passwordTextController.clear,
+                      icon: const Icon(Icons.clear),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -272,15 +284,10 @@ class _LoginPageState extends State<LoginPage> {
                   builder: (context) => SimpleDialog(
                     clipBehavior: Clip.hardEdge,
                     title: const Text('忘记密码？'),
-                    contentPadding: const EdgeInsets.fromLTRB(
-                      0.0,
-                      2.0,
-                      0.0,
-                      16.0,
-                    ),
+                    contentPadding: const .only(top: 2, bottom: 16),
                     children: [
                       const Padding(
-                        padding: EdgeInsets.fromLTRB(25, 0, 25, 10),
+                        padding: .fromLTRB(25, 0, 25, 10),
                         child: Text("试试扫码、手机号登录，或选择"),
                       ),
                       ListTile(
@@ -297,17 +304,14 @@ class _LoginPageState extends State<LoginPage> {
                           ..toNamed(
                             '/webview',
                             parameters: {
-                              'url':
-                                  'https://passport.bilibili.com/h5-app/passport/login/findPassword',
+                              'url': 'https://passport.bilibili.com/h5-app/passport/login/findPassword',
                               'type': 'url',
                               'pageTitle': '忘记密码',
                             },
                           ),
                       ),
                       ListTile(
-                        title: const Text(
-                          '找回密码（电脑版）',
-                        ),
+                        title: const Text('找回密码（电脑版）'),
                         leading: const Icon(Icons.desktop_windows_outlined),
                         subtitle: const Text(
                           'https://passport.bilibili.com/pc/passport/findPassword',
@@ -318,8 +322,7 @@ class _LoginPageState extends State<LoginPage> {
                           ..toNamed(
                             '/webview',
                             parameters: {
-                              'url':
-                                  'https://passport.bilibili.com/pc/passport/findPassword',
+                              'url': 'https://passport.bilibili.com/pc/passport/findPassword',
                               'type': 'url',
                               'pageTitle': '忘记密码',
                               'uaType': 'pc',

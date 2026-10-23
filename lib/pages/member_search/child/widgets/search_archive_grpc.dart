@@ -17,8 +17,8 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
-import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SearchArchiveGrpc extends StatelessWidget {
   const SearchArchiveGrpc({
@@ -129,29 +129,37 @@ class SearchArchiveGrpc extends StatelessWidget {
                 // [CUSTOM] Use LaterService for global watch later sync
                 final isAdded = LaterService.to.isInLater(bvid);
                 return [
-                PopupMenuItem(
-                  height: 45,
-                  onTap: () => Utils.copyText(bvid),
-                  child: Row(
-                    spacing: 6,
-                    children: [
-                      const Icon(CustomIcons.identifier_circle, size: 16),
-                      Text(bvid, style: const TextStyle(fontSize: 13)),
-                    ],
+                  PopupMenuItem(
+                    height: 45,
+                    onTap: () => Utils.copyText(bvid),
+                    child: Row(
+                      spacing: 6,
+                      children: [
+                        const Icon(CustomIcons.identifier_circle, size: 16),
+                        Text(bvid, style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  height: 45,
-                  onTap: () => LaterService.to.toggleLater(bvid),
-                  child: Row(
-                    spacing: 6,
-                    children: [
-                      Icon(isAdded ? MdiIcons.clockCheckOutline : MdiIcons.clockTimeEightOutline, size: 16),
-                      Text(isAdded ? '移除稍后再看' : '稍后再看', style: const TextStyle(fontSize: 13)),
-                    ],
+                  PopupMenuItem(
+                    height: 45,
+                    onTap: () => LaterService.to.toggleLater(bvid),
+                    child: Row(
+                      spacing: 6,
+                      children: [
+                        Icon(
+                          isAdded
+                              ? MdiIcons.clockCheckOutline
+                              : MdiIcons.clockTimeEightOutline,
+                          size: 16,
+                        ),
+                        Text(
+                          isAdded ? '移除稍后再看' : '稍后再看',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ];
+                ];
               },
             ),
           ),

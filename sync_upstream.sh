@@ -1,77 +1,34 @@
 #!/bin/bash
+# [CUSTOM] Merge upstream locally; review and validate before committing/pushing.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
 
-# PiliPlus 自定义版本同步脚本
-# 用于同步原作者(upstream)的更新并保留 feature/custom-enhancements 分支的定制修改
-#
-# 注意事项（合并后必做，详见 AGENT.md）：
-# 1. pubspec.yaml 的 environment.flutter 是精确版本约束，需保证本地
-#    Flutter SDK 与上游要求完全一致（如 3.47.0）
-# 2. 上游会给 Flutter SDK 打补丁（lib/scripts/*.patch），
-#    本地 analyze/build 前需先给 SDK 打补丁：
-#      FR=$(dirname $(dirname $(readlink -f $(which flutter))))
-#      for p in modal_barrier text_selection mouse_cursor image_anim \
-#               layout_builder navigation_drawer popup_menu fab \
-#               null_safety_for_selectable_region selectable_region \
-#               editable_text text_field scroll_position scrollable \
-#               scrollable_gesture draggable_scrollable_sheet scaffold \
-#               text text_painter sliver refresh_indicator; do
-#        git -C "$FR" apply --check "lib/scripts/$p.patch" 2>/dev/null \
-#          && git -C "$FR" apply "lib/scripts/$p.patch"
-#      done
-#    （补丁列表以 lib/scripts/patch.ps1 为准，随上游更新而变化）
-
-set -e  # 遇到错误立即退出
-
-echo "📥 开始同步流程..."
-echo ""
-
-# 1. 获取原作者的最新更新
-echo "🔍 获取原作者(upstream)的最新代码..."
-git fetch upstream
-
-# 2. 切换到main分支并快进合并原作者的更新
-echo "🔄 更新本地main分支..."
-git checkout main
-git merge --ff-only upstream/main
-
-echo "✅ main分支已更新"
-echo ""
-
-# 3. (可选) 推送更新的main到您的fork
-read -p "是否推送更新的main分支到您的GitHub fork? (y/n): " push_main
-if [ "$push_main" = "y" ]; then
-    echo "⬆️ 推送main到origin..."
-    git push origin main
+if [[ -n "$(git status --porcelain)" ]] || git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  echo "工作区有未提交改动或未完成的合并，请先处理。" >&2
+  exit 1
 fi
 
-echo ""
-
-# 4. 备份并合并更新到功能分支
 BRANCH=feature/custom-enhancements
-git branch "backup-before-upstream-merge-$(date +%Y%m%d-%H%M%S)" "$BRANCH"
-
-echo "🔀 合并upstream/main到 $BRANCH ..."
+git show-ref --verify --quiet "refs/heads/$BRANCH"
+git fetch --no-tags upstream
+git branch "codex/backup-custom-$(date +%Y%m%d-%H%M%S)" "$BRANCH"
+git checkout main
+git merge --ff-only upstream/main
 git checkout "$BRANCH"
-git merge upstream/main
+if ! git merge --no-commit --no-ff main; then
+  echo "合并未完成：请检查 Git 输出；若有冲突，保留定制功能并逐项处理。" >&2
+  exit 1
+fi
 
-echo ""
-echo "⚠️  如有冲突，请保留所有带 [CUSTOM] 标记的定制逻辑后重新 git add 并提交。"
-echo ""
-echo "✅ 功能分支已更新！"
-echo ""
-
-# 5. 提示后续步骤
-echo "📝 下一步操作："
-echo "1. 确认 pubspec.yaml 的基础版本和 mod 后缀正确；CI 会按提交数生成 Android versionCode"
-echo "2. 将本地 Flutter SDK 切到 pubspec.yaml 要求的精确版本"
-echo "3. 按 lib/scripts/patch.ps1 的列表给 Flutter SDK 打补丁"
-echo "4. flutter pub get && flutter analyze"
-echo "5. flutter build apk --release --target-platform android-arm64 验证"
-echo "6. 验证通过后推送到您的fork：git push origin $BRANCH"
-echo "7. 发版时先在当前 custom 提交创建标签，再仅推送标签到个人仓库："
-echo "   TAG=vX.Y.Z-mod.N"
-echo "   git tag \"\$TAG\" \"$BRANCH\""
-echo "   git push origin \"refs/tags/\$TAG\""
-echo "   标签推送会触发 Android arm64 构建；不要向 upstream 推送任何分支或标签"
-echo ""
-echo "✅ 同步完成！"
+cat <<'NEXT'
+下一步：
+1. 检查相对 main 的差异，保留收藏、稍后再看、桌面快捷方式和媒体控制定制。
+2. 使用 pubspec.yaml 指定的 Flutter 精确版本和独立 PUB_CACHE。
+3. 按 README 的构建说明给 Flutter SDK 和 material_ui 打补丁。
+4. 运行 flutter analyze --no-pub、flutter test --no-pub 和 Android arm64 release 构建。
+5. 验证通过后完成 merge commit；versionCode = 提交数 + 407。
+6. 确认需要同步远程时，再执行 git push origin main feature/custom-enhancements。
+7. 发版时在验证过的 custom 提交创建标签并推送到 origin。
+   不要向 upstream 推送，不要用尚不存在的 tag 手动触发发布。
+本脚本不会推送、打标签或发布。应用内检查更新的来源保持不变。
+NEXT

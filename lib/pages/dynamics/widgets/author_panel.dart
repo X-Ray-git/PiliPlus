@@ -4,11 +4,10 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
-import 'package:PiliPlus/common/widgets/fav_select_dialog.dart';
+import 'package:PiliPlus/common/widgets/video_favorite_action.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/common/widgets/translucent_row.dart';
 import 'package:PiliPlus/http/constants.dart';
-import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/user.dart';
@@ -18,6 +17,7 @@ import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/save_panel/view.dart';
 import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/color_utils.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -28,11 +28,12 @@ import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class AuthorPanel extends StatelessWidget {
   final DynamicItemModel item;
@@ -260,6 +261,7 @@ class AuthorPanel extends StatelessWidget {
         );
       }
     } catch (_) {}
+    final commentType = item.basic!.commentType;
 
     showModalBottomSheet(
       context: context,
@@ -316,100 +318,15 @@ class AuthorPanel extends StatelessWidget {
                   );
                 }),
                 ListTile(
-                  onTap: () async {
+                  // [CUSTOM] Share account checks, ID parsing and error handling.
+                  onTap: () {
                     Get.back();
-                    if (!Accounts.main.isLogin) {
-                      SmartDialog.showToast('账号未登录');
-                      return;
-                    }
-
-                    // 获取aid
-                    int? aid;
-                    try {
-                      final major = item.modules.moduleDynamic?.major;
-                      if (item.type == 'DYNAMIC_TYPE_AV') {
-                        aid = major?.archive?.aid;
-                      } else if (item.type == 'DYNAMIC_TYPE_UGC_SEASON') {
-                        aid = major?.ugcSeason?.aid;
-                      }
-
-                      if (aid == null && item.orig != null) {
-                        final origMajor =
-                            item.orig!.modules.moduleDynamic?.major;
-                        if (item.orig!.type == 'DYNAMIC_TYPE_AV') {
-                          aid = origMajor?.archive?.aid;
-                        } else if (item.orig!.type ==
-                            'DYNAMIC_TYPE_UGC_SEASON') {
-                          aid = origMajor?.ugcSeason?.aid;
-                        }
-                      }
-                    } catch (_) {}
-
-                    if (aid == null) {
-                      SmartDialog.showToast('无法获取视频ID');
-                      return;
-                    }
-
-                    SmartDialog.showLoading(msg: '加载中');
-
-                    final foldersRes = await FavHttp.videoInFolder(
-                      mid: Accounts.main.mid,
-                      rid: aid,
-                      type: 2,
+                    VideoFavoriteAction.show(
+                      context: context,
+                      aid: VideoFavoriteAction.resolveAid(bvid: bvid),
+                      prefetchedMid: null,
+                      foldersFuture: null,
                     );
-
-                    SmartDialog.dismiss();
-
-                    if (!foldersRes.isSuccess) {
-                      SmartDialog.showToast('获取收藏夹失败');
-                      return;
-                    }
-
-                    final folders = foldersRes.data.list ?? [];
-                    if (folders.isEmpty) {
-                      SmartDialog.showToast('暂无收藏夹，请先创建');
-                      return;
-                    }
-
-                    final initialSelected = folders
-                        .where((f) => f.favState == 1)
-                        .map((f) => f.id)
-                        .toSet();
-
-                    if (!context.mounted) return;
-
-                    final result = await FavSelectDialog.show(
-                      context,
-                      folders,
-                      initialSelected,
-                    );
-
-                    if (result == null) return;
-
-                    if (result.add.isEmpty && result.del.isEmpty) {
-                      SmartDialog.showToast('未做任何修改');
-                      return;
-                    }
-
-                    SmartDialog.showLoading(msg: '处理中');
-
-                    final favRes = await FavHttp.favVideo(
-                      resources: '$aid:2',
-                      addIds: result.add.isNotEmpty
-                          ? result.add.join(',')
-                          : null,
-                      delIds: result.del.isNotEmpty
-                          ? result.del.join(',')
-                          : null,
-                    );
-
-                    SmartDialog.dismiss();
-
-                    if (favRes.isSuccess) {
-                      SmartDialog.showToast('操作成功');
-                    } else {
-                      SmartDialog.showToast('操作失败：$favRes');
-                    }
                   },
                   minLeadingWidth: 0,
                   leading: const Icon(Icons.star_outline, size: 19),
@@ -437,31 +354,32 @@ class AuthorPanel extends StatelessWidget {
                 onTap: () {
                   Get.back();
                   ShareUtils.shareText(
-                    '${HttpString.dynamicShareBaseUrl}/${item.idStr}',
+                    '${HttpString.opusBaseUrl}/${item.idStr}',
                   );
                 },
                 minLeadingWidth: 0,
               ),
-              if ((item.basic!.commentType == 17 ||
-                      item.basic!.commentType == 11) &&
+              if (BiliUtils.isDynOrArticle(commentType) &&
                   item.modules.moduleDynamic?.major?.blocked == null)
                 ListTile(
-                  title: Text(
-                    '分享至消息',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  title: Text('分享至消息', style: theme.textTheme.titleSmall),
                   leading: const Icon(Icons.forward_to_inbox, size: 19),
                   onTap: () {
                     Get.back();
                     try {
-                      bool isDyn = item.basic!.commentType == 17;
-                      String id = isDyn ? item.idStr : item.basic!.ridStr!;
-                      int source = isDyn ? 11 : 2;
+                      final isDyn = commentType == 17;
+                      final id = isDyn ? item.idStr : item.basic!.ridStr!;
+                      final source = switch (commentType) {
+                        11 => 2,
+                        12 => 6,
+                        17 => 11,
+                        _ => throw UnsupportedError(commentType.toString()),
+                      };
                       final moduleDynamic = item.modules.moduleDynamic!;
                       final title =
                           moduleDynamic.desc?.text ??
                           moduleDynamic.major!.opus!.summary!.text!;
-                      String? thumb = isDyn
+                      final thumb = isDyn
                           ? moduleAuthor.face
                           : moduleDynamic.major?.opus?.pics?.firstOrNull?.url;
                       PageUtils.pmShare(
@@ -534,7 +452,7 @@ class AuthorPanel extends StatelessWidget {
                       Get.back();
                       final res = await ReplyHttp.replyInteraction(
                         oid: item.basic!.commentIdStr!,
-                        type: item.basic!.commentType!,
+                        type: commentType!,
                       );
                       if (res case Success(:final response)) {
                         if (context.mounted) {
@@ -699,7 +617,28 @@ class AuthorPanel extends StatelessWidget {
                     ),
                   ),
               ],
-              if (Accounts.main.isLogin)
+              if (!Accounts.main.isLogin)
+                ListTile(
+                  title: Text(
+                    '屏蔽',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  leading: Icon(
+                    Icons.error_outline_outlined,
+                    size: 19,
+                    color: theme.colorScheme.error,
+                  ),
+                  onTap: () {
+                    Get.back();
+                    Pref.setBlackMid(moduleAuthor.mid!);
+                    SmartDialog.showToast('屏蔽成功');
+                  },
+                  minLeadingWidth: 0,
+                )
+              else
                 ListTile(
                   title: Text(
                     '举报',
@@ -716,6 +655,7 @@ class AuthorPanel extends StatelessWidget {
                     Get.back();
                     autoWrapReportDialog(
                       context,
+                      mid: () => moduleAuthor.mid!,
                       ReportOptions.dynamicReport,
                       (reasonType, reasonDesc, banUid) {
                         if (banUid) {
@@ -729,7 +669,7 @@ class AuthorPanel extends StatelessWidget {
                           mid: moduleAuthor.mid!,
                           dynId: item.idStr,
                           reasonType: reasonType,
-                          reasonDesc: reasonType == 0 ? reasonDesc : null,
+                          reasonDesc: reasonDesc,
                         );
                       },
                     );

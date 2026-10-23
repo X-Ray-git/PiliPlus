@@ -150,3 +150,6 @@ pili_release.json
 dist
 
 test*
+# [CUSTOM] Keep regression tests while ignoring root scratch files (test*.dart).
+!/test/
+!/test/**
