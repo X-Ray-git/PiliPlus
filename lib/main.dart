@@ -15,6 +15,7 @@ import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/services/later_service.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/services/logger.dart';
+import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -104,6 +105,8 @@ void main() async {
     if (kDebugMode) debugPrint('GStorage init error: $e');
     DeviceUtils.exitApp();
   }
+  // [CUSTOM] Initialize opt-in media diagnostics after settings are available.
+  MediaControlDiagnostics.init();
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   await Future.wait([
     _initDownPath(),

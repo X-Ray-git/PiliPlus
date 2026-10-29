@@ -29,6 +29,7 @@ import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
@@ -559,6 +560,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   // 原实现：return _playCallBack?.call();
   // 当回调函数丢失或返回 null 时，会导致点击播放按钮无效。这里增加回退逻辑，直接调用 _instance?.play()
   static Future<void>? playIfExists() {
+    MediaControlDiagnostics.record('video.play.dispatch', {
+      'hasCallback': _playCallBack != null,
+      'hasController': _instance != null,
+    });
     return _playCallBack?.call() ?? _instance?.play();
   }
 
@@ -571,6 +576,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     bool notify = true,
     bool isInterrupt = false,
   }) {
+    MediaControlDiagnostics.record('video.pause.dispatch', {
+      'hasController': _instance != null,
+      'controllerPlaying': _instance?.playerStatus.isPlaying,
+      'nativePlaying': _instance?.videoPlayerController?.state.playing,
+      'interruption': isInterrupt,
+    });
     if (_instance?.playerStatus.isPlaying ?? false) {
       return _instance?.pause(notify: notify, isInterrupt: isInterrupt);
     }
@@ -1021,6 +1032,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _subscriptions = [
       /// playing
       stream.playing.listen((bool playing) {
+        // [CUSTOM] Record native video transitions for intermittent control failures.
+        MediaControlDiagnostics.record('video.playing', {'playing': playing});
         if (playing) {
           playerStatus = .playing;
           _stopWakeLockTimer();
@@ -1053,6 +1066,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
       ///completed
       stream.completed.listen((bool completed) {
+        MediaControlDiagnostics.record('video.completed', {
+          'completed': completed,
+        });
         if (completed) {
           playerStatus = .completed;
           _startWakeLockTimer();
@@ -1091,6 +1107,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         buffered.value = buffer.inSeconds;
       }),
       stream.buffering.listen((bool buffering) {
+        MediaControlDiagnostics.record('video.buffering', {
+          'buffering': buffering,
+        });
         isBuffering.value = buffering;
         if (!playerStatus.isCompleted) {
           _stopWakeLockTimer();
@@ -1236,6 +1255,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   /// 播放视频
   Future<void> play({bool repeat = false, bool hideControls = true}) async {
+    MediaControlDiagnostics.record('video.play.begin', {
+      'playerCount': _playerCount,
+      'hasPlayer': _videoPlayerController != null,
+      'nativePlaying': _videoPlayerController?.state.playing,
+    });
     if (_playerCount == 0) return;
     // 播放时自动隐藏控制条
     controls = !hideControls;
@@ -1245,6 +1269,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     await _videoPlayerController?.play();
+    MediaControlDiagnostics.record('video.play.returned', {
+      'nativePlaying': _videoPlayerController?.state.playing,
+    });
 
     audioSessionHandler?.setActive(true);
 
@@ -1253,7 +1280,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   /// 暂停播放
   Future<void> pause({bool notify = true, bool isInterrupt = false}) async {
+    MediaControlDiagnostics.record('video.pause.begin', {
+      'nativePlaying': _videoPlayerController?.state.playing,
+      'interruption': isInterrupt,
+    });
     await _videoPlayerController?.pause();
+    MediaControlDiagnostics.record('video.pause.returned', {
+      'nativePlaying': _videoPlayerController?.state.playing,
+    });
     playerStatus = .paused;
 
     // 主动暂停时让出音频焦点

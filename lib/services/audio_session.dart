@@ -1,13 +1,29 @@
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:audio_session/audio_session.dart';
 
 class AudioSessionHandler {
   late AudioSession session;
   bool _playInterrupted = false;
 
-  Future<bool> setActive(bool active) {
-    return session.setActive(active);
+  // [CUSTOM] Observe focus requests/results without changing focus policy.
+  Future<bool> setActive(bool active) async {
+    MediaControlDiagnostics.record('focus.request', {'active': active});
+    try {
+      final granted = await session.setActive(active);
+      MediaControlDiagnostics.record('focus.result', {
+        'active': active,
+        'granted': granted,
+      });
+      return granted;
+    } catch (error) {
+      MediaControlDiagnostics.record('focus.error', {
+        'active': active,
+        'errorType': error.runtimeType.toString(),
+      });
+      rethrow;
+    }
   }
 
   AudioSessionHandler() {
@@ -19,6 +35,10 @@ class AudioSessionHandler {
     session.configure(const AudioSessionConfiguration.music());
 
     session.interruptionEventStream.listen((event) {
+      MediaControlDiagnostics.record('focus.interruption', {
+        'begin': event.begin,
+        'type': event.type.name,
+      });
       final playerStatus = PlPlayerController.getPlayerStatusIfExists();
       // final player = PlPlayerController.getInstance();
       if (event.begin) {
@@ -65,6 +85,7 @@ class AudioSessionHandler {
 
     // 耳机拔出暂停
     session.becomingNoisyEventStream.listen((_) {
+      MediaControlDiagnostics.record('audio.becomingNoisy');
       PlPlayerController.pauseIfExists();
       // final player = PlPlayerController.getInstance();
       // if (player.playerStatus.playing) {

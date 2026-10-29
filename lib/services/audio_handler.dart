@@ -14,6 +14,7 @@ import 'package:PiliPlus/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
@@ -70,9 +71,46 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   void Function()? onSkipToNext;
   void Function()? onSkipToPrevious;
 
-  // [CUSTOM] Dispatch audio and video controls exclusively, even if a callback returns null.
+  // [CUSTOM] Observe entry/completion without changing command dispatch.
+  void _trace(String event, [Map<String, Object?> extra = const {}]) {
+    if (!MediaControlDiagnostics.enabled) return;
+    final player = PlPlayerController.instance;
+    final state = player?.videoPlayerController?.state;
+    MediaControlDiagnostics.record(event, {
+      'audioOwner': onPlay != null,
+      'hasVideoPlayer': state != null,
+      'controllerStatus': player?.playerStatus.name,
+      'nativePlaying': state?.playing,
+      'nativeCompleted': state?.completed,
+      'positionMs': state?.position.inMilliseconds,
+      'buffering': player?.isBuffering.value,
+      'sessionPlaying': playbackState.value.playing,
+      'sessionProcessing': playbackState.value.processingState.name,
+      'backgroundPlay': enableBackgroundPlay,
+      ...extra,
+    });
+  }
+
+  @override
+  Future<void> click([MediaButton button = MediaButton.media]) async {
+    _trace('media.click', {'button': button.name});
+    await super.click(button);
+  }
+
+  // A direct play may originate from a system controller, not only a notification.
   @override
   Future<void> play() async {
+    _trace('media.play.received');
+    try {
+      await _dispatchPlay();
+      _trace('media.play.returned');
+    } catch (error) {
+      _trace('media.play.error', {'errorType': error.runtimeType.toString()});
+      rethrow;
+    }
+  }
+
+  Future<void> _dispatchPlay() async {
     final callback = onPlay;
     if (callback != null) {
       await callback();
@@ -84,6 +122,17 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   // [CUSTOM] Dispatch audio and video controls exclusively, even if a callback returns null.
   @override
   Future<void> pause() async {
+    _trace('media.pause.received');
+    try {
+      await _dispatchPause();
+      _trace('media.pause.returned');
+    } catch (error) {
+      _trace('media.pause.error', {'errorType': error.runtimeType.toString()});
+      rethrow;
+    }
+  }
+
+  Future<void> _dispatchPause() async {
     final callback = onPause;
     if (callback != null) {
       await callback();
@@ -200,6 +249,13 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     required Duration position,
     required double speed,
   }) {
+    if (playbackState.value.playing != playing ||
+        playbackState.value.processingState != state) {
+      _trace('media.state.published', {
+        'nextPlaying': playing,
+        'nextProcessing': state.name,
+      });
+    }
     playbackState.add(
       playbackState.value.copyWith(
         processingState: state,

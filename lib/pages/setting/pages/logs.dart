@@ -1,13 +1,15 @@
 import 'dart:async' show Timer;
 import 'dart:convert' show jsonDecode;
+import 'dart:io';
 
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/services/logger.dart';
+import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -16,6 +18,8 @@ import 'package:catcher_2/catcher_2.dart';
 import 'package:catcher_2/utils/log_printer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 const _snackBarDisplayDuration = Duration(seconds: 1);
 
@@ -30,6 +34,7 @@ class _LogsPageState extends State<LogsPage> {
   List<_ExpandedItem<Report>> logsContent = [];
   _ExpandedItem<_DeviceInfo>? _deviceInfo;
   late bool enableLog = Pref.enableLog;
+  bool _diagnosticsBusy = false;
 
   @override
   void initState() {
@@ -103,6 +108,105 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
+  // [CUSTOM] Separate opt-in media diagnostics from crash reports.
+  Future<File> _diagnosticExportFile() async {
+    final directory = await getTemporaryDirectory();
+    return File('${directory.path}/piliplus-media-diagnostics.jsonl');
+  }
+
+  Future<void> _runDiagnosticAction(Future<void> Function() action) async {
+    if (_diagnosticsBusy) return;
+    setState(() => _diagnosticsBusy = true);
+    try {
+      await action();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('操作失败，请稍后重试')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _diagnosticsBusy = false);
+    }
+  }
+
+  Future<void> _exportMediaDiagnostics() async {
+    final content = await MediaControlDiagnostics.export();
+    final file = await _diagnosticExportFile();
+    await file.writeAsString(content, flush: true);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        sharePositionOrigin: await ShareUtils.sharePositionOrigin,
+      ),
+    );
+  }
+
+  Future<void> _clearMediaDiagnostics() async {
+    await MediaControlDiagnostics.clear();
+    final file = await _diagnosticExportFile();
+    // Keep diagnostic file operations off the UI event loop.
+    // ignore: avoid_slow_async_io
+    if (await file.exists()) await file.delete();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已清空媒体控制诊断记录')),
+      );
+    }
+  }
+
+  Widget _mediaDiagnosticsCard() => Card(
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            title: const Text('媒体控制诊断'),
+            subtitle: const Text('记录后台视频播放、暂停及音频焦点状态，立即生效'),
+            value: MediaControlDiagnostics.enabled,
+            onChanged: _diagnosticsBusy
+                ? null
+                : (value) => _runDiagnosticAction(
+                    () => MediaControlDiagnostics.setEnabled(value),
+                  ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              '先开启并正常使用；出现通知栏或耳机控制失效后，回到这里标记并导出。'
+              '可先用耳机恢复播放。\n'
+              '仅保存在本机，最多保留最近 400 条、128 KiB；'
+              '不记录视频内容、地址或账号，不会自动上传。',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.ios_share),
+                  label: const Text('标记刚才的故障并导出'),
+                  onPressed: _diagnosticsBusy
+                      ? null
+                      : () => _runDiagnosticAction(_exportMediaDiagnostics),
+                ),
+                TextButton(
+                  onPressed: _diagnosticsBusy
+                      ? null
+                      : () => _runDiagnosticAction(_clearMediaDiagnostics),
+                  child: const Text('清空诊断记录'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.viewPaddingOf(context);
@@ -157,34 +261,34 @@ class _LogsPageState extends State<LogsPage> {
           const SizedBox(width: 6),
         ],
       ),
-      body: logsContent.isNotEmpty || _deviceInfo != null
-          ? Padding(
-              padding: EdgeInsets.only(
-                left: padding.left + 12,
-                right: padding.right + 12,
+      body: Padding(
+        padding: EdgeInsets.only(
+          left: padding.left + 12,
+          right: padding.right + 12,
+        ),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _mediaDiagnosticsCard()),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            if (_deviceInfo != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const .only(bottom: 12),
+                  child: _InfoCard(info: _deviceInfo!),
+                ),
               ),
-              child: CustomScrollView(
-                slivers: [
-                  if (_deviceInfo != null)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const .only(bottom: 12),
-                        child: _InfoCard(info: _deviceInfo!),
-                      ),
-                    ),
-                  SliverPadding(
-                    padding: EdgeInsets.only(bottom: padding.bottom + 100),
-                    sliver: SliverList.separated(
-                      itemCount: logsContent.length,
-                      itemBuilder: (context, index) =>
-                          _ReportCard(report: logsContent[index]),
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    ),
-                  ),
-                ],
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: padding.bottom + 100),
+              sliver: SliverList.separated(
+                itemCount: logsContent.length,
+                itemBuilder: (context, index) =>
+                    _ReportCard(report: logsContent[index]),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
               ),
-            )
-          : scrollableError,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
