@@ -91,9 +91,39 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     });
   }
 
+  // [CUSTOM] Check ordinary-video controls even when dispatch never completes.
+  void _watchCommand(bool playing) {
+    final owner = PlPlayerController.instance;
+    final audioCallback = onPlay;
+    final player = owner?.videoPlayerController;
+    final wasCompleted = player?.state.completed ?? false;
+    MediaControlDiagnostics.watchCommand(playing, () {
+      if (audioCallback != null ||
+          onPlay != null ||
+          PlPlayerController.instance != owner ||
+          owner?.videoPlayerController != player) {
+        return null;
+      }
+      final state = owner?.videoPlayerController?.state;
+      if (playing && !wasCompleted && state?.completed == true) return null;
+      return (
+        hasPlayer: state != null,
+        playing: state?.playing ?? false,
+        sessionPlaying: playbackState.value.playing,
+      );
+    });
+  }
+
   @override
   Future<void> click([MediaButton button = MediaButton.media]) async {
     _trace('media.click', {'button': button.name});
+    final state = PlPlayerController.instance?.videoPlayerController?.state;
+    if (button == MediaButton.media &&
+        onPlay == null &&
+        state != null &&
+        state.playing != playbackState.value.playing) {
+      _trace('media.command.suspect', {'reason': 'headset_state_mismatch'});
+    }
     await super.click(button);
   }
 
@@ -101,6 +131,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> play() async {
     _trace('media.play.received');
+    _watchCommand(true);
     try {
       await _dispatchPlay();
       _trace('media.play.returned');
@@ -123,6 +154,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> pause() async {
     _trace('media.pause.received');
+    _watchCommand(false);
     try {
       await _dispatchPause();
       _trace('media.pause.returned');
@@ -438,6 +470,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   }
 
   void clear() {
+    // [CUSTOM] A cleared media session supersedes any pending diagnostic check.
+    MediaControlDiagnostics.cancelCommandCheck();
     if (!enableBackgroundPlay) return;
     mediaItem.add(null);
     _item.clear();

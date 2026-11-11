@@ -46,8 +46,15 @@ void main() {
       .map((line) => jsonDecode(line) as Map<String, dynamic>)
       .toList();
 
+  List<Map<String, dynamic>> recentEvents(String text) {
+    final all = events(text);
+    return all
+        .skip(all.lastIndexWhere((e) => e['event'] == 'recent.start') + 1)
+        .toList();
+  }
+
   test(
-    'disabled recorder creates no event file and explicit export marks report',
+    'disabled recorder creates no events and export does not create a false incident',
     () async {
       expect(MediaControlDiagnostics.enabled, isFalse);
       MediaControlDiagnostics.record('ignored');
@@ -56,8 +63,9 @@ void main() {
         isFalse,
       );
       final result = events(await MediaControlDiagnostics.export());
-      expect(result.single['event'], 'user.report');
-      expect(result.single['recordingEnabled'], isFalse);
+      expect(result.first['event'], 'archive.summary');
+      expect(result.first['saved'], 0);
+      expect(result.last['event'], 'recent.start');
     },
   );
 
@@ -67,12 +75,12 @@ void main() {
       ..onPlay = () async => throw StateError('private video URL');
     await expectLater(handler.play(), throwsStateError);
     final output = await MediaControlDiagnostics.export();
-    final result = events(output);
+    final result = recentEvents(output);
+    expect(events(output).first['saved'], 1);
     expect(result.map((e) => e['event']), [
       'diagnostics.enabled',
       'media.play.received',
       'media.play.error',
-      'user.report',
     ]);
     expect(result[2]['errorType'], 'StateError');
     expect(output, isNot(contains('private video URL')));
@@ -84,13 +92,12 @@ void main() {
     await MediaControlDiagnostics.setEnabled(true);
     final handler = VideoPlayerServiceHandler();
     await handler.play();
-    final result = events(await MediaControlDiagnostics.export());
+    final result = recentEvents(await MediaControlDiagnostics.export());
     expect(result.map((e) => e['event']), [
       'diagnostics.enabled',
       'media.play.received',
       'video.play.dispatch',
       'media.play.returned',
-      'user.report',
     ]);
     expect(result[1]['audioOwner'], isFalse);
     expect(result[2]['hasController'], isFalse);
@@ -106,9 +113,39 @@ void main() {
       MediaControlDiagnostics.record('after.clear');
       await MediaControlDiagnostics.setEnabled(false);
       MediaControlDiagnostics.record('after.disable');
-      final result = events(await MediaControlDiagnostics.export());
-      expect(result.map((e) => e['event']), ['after.clear', 'user.report']);
-      expect(result.last['recordingEnabled'], isFalse);
+      final result = recentEvents(await MediaControlDiagnostics.export());
+      expect(result.map((e) => e['event']), ['after.clear']);
+    },
+  );
+  test(
+    'manual marking persists separately from normal records and export',
+    () async {
+      await MediaControlDiagnostics.setEnabled(true);
+      MediaControlDiagnostics.record('manual.context');
+      await MediaControlDiagnostics.markIncident();
+      await MediaControlDiagnostics.setEnabled(false);
+      final output = await MediaControlDiagnostics.export();
+      expect(events(output).first['saved'], 1);
+      expect(output, contains('manual.context'));
+      expect(output, contains('user.report'));
+      await MediaControlDiagnostics.clear();
+      expect(events(await MediaControlDiagnostics.export()).first['saved'], 0);
+    },
+  );
+  test(
+    'only denied focus acquisition is archived, not focus release',
+    () async {
+      await MediaControlDiagnostics.setEnabled(true);
+      MediaControlDiagnostics.record('focus.result', {
+        'active': false,
+        'granted': false,
+      });
+      expect(events(await MediaControlDiagnostics.export()).first['saved'], 0);
+      MediaControlDiagnostics.record('focus.result', {
+        'active': true,
+        'granted': false,
+      });
+      expect(events(await MediaControlDiagnostics.export()).first['saved'], 1);
     },
   );
 }

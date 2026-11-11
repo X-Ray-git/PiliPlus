@@ -40,6 +40,7 @@ class _LogsPageState extends State<LogsPage> {
   void initState() {
     _initDeviceInfo();
     getLog();
+    MediaControlDiagnostics.refreshArchiveStatus();
     super.initState();
   }
 
@@ -130,6 +131,21 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
+  Future<void> _markMediaIncident() async {
+    await MediaControlDiagnostics.markIncident();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            MediaControlDiagnostics.archiveStatus.value.full
+                ? '故障存档已满，请先导出再清空；已有存档不会被覆盖'
+                : '已保存故障现场，可稍后导出',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _exportMediaDiagnostics() async {
     final content = await MediaControlDiagnostics.export();
     final file = await _diagnosticExportFile();
@@ -174,10 +190,25 @@ class _LogsPageState extends State<LogsPage> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              '先开启并正常使用；出现通知栏或耳机控制失效后，回到这里标记并导出。'
-              '可先用耳机恢复播放。\n'
-              '仅保存在本机，最多保留最近 400 条、128 KiB；'
-              '不记录视频内容、地址或账号，不会自动上传。',
+              '开启后，控制指令 5 秒后状态仍不符、命令异常或获取音频焦点失败时，'
+              '自动保存疑似故障及前后记录。系统未传入耳机按键时无法自动发现，'
+              '请尽快手动标记，之后可稍后导出。\n'
+              '日常记录循环保留 400 条、128 KiB；故障单独保存至手动清空，'
+              '最多 20 份、每份 256 KiB。存满后停止新增，不覆盖已有故障。\n'
+              '仅保存在本机，不记录视频内容、地址或账号，不会自动上传。',
+            ),
+          ),
+          ValueListenableBuilder(
+            valueListenable: MediaControlDiagnostics.archiveStatus,
+            builder: (context, status, _) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                status.failed
+                    ? '诊断存储出现错误，请尝试导出并检查存储空间'
+                    : status.full
+                    ? '已保存 ${status.saved}/20 份，存档已满，请先导出再清空'
+                    : '已保存 ${status.saved}/20 份故障现场',
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -186,9 +217,15 @@ class _LogsPageState extends State<LogsPage> {
             child: Wrap(
               spacing: 8,
               children: [
+                TextButton(
+                  onPressed: _diagnosticsBusy
+                      ? null
+                      : () => _runDiagnosticAction(_markMediaIncident),
+                  child: const Text('标记刚才的故障'),
+                ),
                 TextButton.icon(
                   icon: const Icon(Icons.ios_share),
-                  label: const Text('标记刚才的故障并导出'),
+                  label: const Text('导出诊断记录'),
                   onPressed: _diagnosticsBusy
                       ? null
                       : () => _runDiagnosticAction(_exportMediaDiagnostics),
