@@ -345,6 +345,12 @@ for patch in modal_barrier text_selection mouse_cursor image_anim layout_builder
 done
 flutter pub get
 
+# Android 媒体通知与耳机控制。按依赖锁定的 Git checkout 应用，兼容重复构建。
+AUDIO_ROOT="$(python3 -c 'import json, pathlib, urllib.parse as u; p=pathlib.Path(".dart_tool/package_config.json").resolve(); r=next(x["rootUri"] for x in json.loads(p.read_text())["packages"] if x["name"]=="audio_service"); print(u.unquote(u.urlparse(u.urljoin(p.as_uri(), r)).path))')"
+AUDIO_PATCH="$REPO_ROOT/lib/scripts/audio_service_android.patch"
+git -C "$AUDIO_ROOT" apply --reverse --check --quiet "$AUDIO_PATCH" ||
+  git -C "$AUDIO_ROOT" apply "$AUDIO_PATCH" || exit 1
+
 # 2.1.6 新增 material_ui 补丁。当前 lock 固定为 1.11.0。
 MATERIAL_ROOT="$PUB_CACHE/hosted/pub.dev/material_ui-1.11.0"
 for patch in modal_barrier_material navigation_drawer popup_menu fab text_field \

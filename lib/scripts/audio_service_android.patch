@@ -1,0 +1,186 @@
+diff --git a/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioService.java b/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioService.java
+index c21a99d..c08532e 100644
+--- a/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioService.java
++++ b/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioService.java
+@@ -69,11 +69,8 @@ public class AudioService extends MediaBrowserServiceCompat {
+     public static final String CUSTOM_ACTION_REWIND = "com.ryanheise.audioservice.action.REWIND";
+     private static final String BROWSABLE_ROOT_ID = "root";
+     private static final String RECENT_ROOT_ID = "recent";
+-    // See the comment in onMediaButtonEvent to understand how the BYPASS keycodes work.
+-    // We hijack KEYCODE_MUTE and KEYCODE_MEDIA_RECORD since the media session subsystem
+-    // considers these keycodes relevant to media playback and will pass them on to us.
+-    public static final int KEYCODE_BYPASS_PLAY = KeyEvent.KEYCODE_MUTE;
+-    public static final int KEYCODE_BYPASS_PAUSE = KeyEvent.KEYCODE_MEDIA_RECORD;
++    static final String NOTIFICATION_PLAY = "com.ryanheise.audioservice.NOTIFICATION_PLAY";
++    static final String NOTIFICATION_PAUSE = "com.ryanheise.audioservice.NOTIFICATION_PAUSE";
+     public static final int MAX_COMPACT_ACTIONS = 3;
+     private static final long AUTO_ENABLED_ACTIONS = PlaybackStateCompat.ACTION_STOP
+             | PlaybackStateCompat.ACTION_PAUSE
+@@ -117,16 +114,6 @@ public class AudioService extends MediaBrowserServiceCompat {
+         listener.onCustomAction(action, null);
+     }
+ 
+-    public static int toKeyCode(long action) {
+-        if (action == PlaybackStateCompat.ACTION_PLAY) {
+-            return KEYCODE_BYPASS_PLAY;
+-        } else if (action == PlaybackStateCompat.ACTION_PAUSE) {
+-            return KEYCODE_BYPASS_PAUSE;
+-        } else {
+-            return PlaybackStateCompat.toKeyCode(action);
+-        }
+-    }
+-
+     MediaMetadataCompat createMediaMetadata(String mediaId, String title, String album, String artist, String genre, Long duration, String artUri, Boolean playable, String displayTitle, String displaySubtitle, String displayDescription, RatingCompat rating, Map<?, ?> extras) {
+         MediaMetadataCompat.Builder builder = new MediaMetadataCompat.Builder()
+                 .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, mediaId)
+@@ -364,8 +351,8 @@ public class AudioService extends MediaBrowserServiceCompat {
+     public void onDestroy() {
+         super.onDestroy();
+         if (listener != null) {
++            // The Flutter engine can outlive this service. Its detach callback clears the listener.
+             listener.onDestroy();
+-            listener = null;
+         }
+         mediaMetadata = null;
+         artBitmap = null;
+@@ -498,12 +485,16 @@ public class AudioService extends MediaBrowserServiceCompat {
+     }
+ 
+     PendingIntent buildMediaButtonPendingIntent(long action) {
+-        int keyCode = toKeyCode(action);
++        int keyCode = PlaybackStateCompat.toKeyCode(action);
+         if (keyCode == KeyEvent.KEYCODE_UNKNOWN)
+             return null;
+         Intent intent = new Intent(this, MediaButtonReceiver.class);
+-        intent.setAction(Intent.ACTION_MEDIA_BUTTON);
+-        intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
++        if (action == PlaybackStateCompat.ACTION_PLAY || action == PlaybackStateCompat.ACTION_PAUSE) {
++            intent.setAction(action == PlaybackStateCompat.ACTION_PLAY ? NOTIFICATION_PLAY : NOTIFICATION_PAUSE);
++        } else {
++            intent.setAction(Intent.ACTION_MEDIA_BUTTON);
++            intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
++        }
+         int flags = 0;
+         if (Build.VERSION.SDK_INT >= 23) {
+             flags |= PendingIntent.FLAG_IMMUTABLE;
+@@ -982,12 +973,6 @@ public class AudioService extends MediaBrowserServiceCompat {
+             final KeyEvent event = (KeyEvent)mediaButtonEvent.getExtras().getParcelable(Intent.EXTRA_KEY_EVENT);
+             if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                 switch (event.getKeyCode()) {
+-                case KEYCODE_BYPASS_PLAY:
+-                    onPlay();
+-                    break;
+-                case KEYCODE_BYPASS_PAUSE:
+-                    onPause();
+-                    break;
+                 case KeyEvent.KEYCODE_MEDIA_STOP:
+                     onStop();
+                     break;
+@@ -997,14 +982,7 @@ public class AudioService extends MediaBrowserServiceCompat {
+                 case KeyEvent.KEYCODE_MEDIA_REWIND:
+                     onRewind();
+                     break;
+-                // Android unfortunately reroutes media button clicks to
+-                // KEYCODE_MEDIA_PLAY/PAUSE instead of the expected KEYCODE_HEADSETHOOK
+-                // or KEYCODE_MEDIA_PLAY_PAUSE. As a result, we can't genuinely tell if
+-                // onMediaButtonEvent was called because a media button was actually
+-                // pressed or because a PLAY/PAUSE action was pressed instead! To get
+-                // around this, we make PLAY and PAUSE actions use different keycodes:
+-                // KEYCODE_BYPASS_PLAY/PAUSE. Now if we get KEYCODE_MEDIA_PLAY/PUASE
+-                // we know it is actually a media button press.
++                // Some headsets send PLAY/PAUSE keycodes for their single toggle button.
+                 case KeyEvent.KEYCODE_MEDIA_NEXT:
+                 case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                 case KeyEvent.KEYCODE_MEDIA_PLAY:
+diff --git a/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java b/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java
+index ec25444..a821835 100644
+--- a/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java
++++ b/audio_service/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java
+@@ -294,6 +294,7 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
+             System.out.println("### destroying audio handler interface");
+             audioHandlerInterface.destroy();
+             audioHandlerInterface = null;
++            AudioService.init(null);
+         }
+         flutterPluginBinding = null;
+     }
+diff --git a/audio_service/android/src/main/java/com/ryanheise/audioservice/MediaButtonReceiver.java b/audio_service/android/src/main/java/com/ryanheise/audioservice/MediaButtonReceiver.java
+index 5f7d3c3..945771e 100644
+--- a/audio_service/android/src/main/java/com/ryanheise/audioservice/MediaButtonReceiver.java
++++ b/audio_service/android/src/main/java/com/ryanheise/audioservice/MediaButtonReceiver.java
+@@ -3,7 +3,10 @@ package com.ryanheise.audioservice;
+ import static com.ryanheise.audioservice.AudioService.NOTIFICATION_CUSTOM_ACTION;
+ import static com.ryanheise.audioservice.AudioService.NOTIFICATION_CUSTOM_ACTION_NAME;
+ 
++import android.content.ComponentName;
+ import android.content.Context;
++import android.media.browse.MediaBrowser;
++import android.media.session.MediaController;
+ import android.content.Intent;
+ 
+ @SuppressWarnings("deprecation")
+@@ -13,6 +16,21 @@ public class MediaButtonReceiver extends androidx.media.session.MediaButtonRecei
+     @Override
+     public void onReceive(Context context, Intent intent) {
+         if (intent == null) return;
++        String action = intent.getAction();
++        if (AudioService.NOTIFICATION_PLAY.equals(action) || AudioService.NOTIFICATION_PAUSE.equals(action)) {
++            final boolean play = AudioService.NOTIFICATION_PLAY.equals(action);
++            AudioService service = AudioService.instance;
++            if (service != null && service.getSessionToken() != null) {
++                sendTransportCommand(new MediaController(context,
++                    (android.media.session.MediaSession.Token) service.getSessionToken().getToken()), play);
++            } else {
++                // A retained notification may outlive the service. Reconnect before dispatching.
++                final PendingResult pending = goAsync();
++                NotificationConnection connection = new NotificationConnection(context.getApplicationContext(), play, pending);
++                connection.browser.connect();
++            }
++            return;
++        }
+         if (AudioService.instance != null) {
+             if (ACTION_NOTIFICATION_DELETE.equals(intent.getAction())) {
+                 AudioService.instance.handleDeleteNotification();
+@@ -28,4 +46,42 @@ public class MediaButtonReceiver extends androidx.media.session.MediaButtonRecei
+ 
+         super.onReceive(context, intent);
+     }
++
++    private static void sendTransportCommand(MediaController controller, boolean play) {
++        if (play) controller.getTransportControls().play();
++        else controller.getTransportControls().pause();
++    }
++
++    private static final class NotificationConnection extends MediaBrowser.ConnectionCallback {
++        final Context context;
++        final MediaBrowser browser;
++        final boolean play;
++        final PendingResult pending;
++        boolean finished;
++
++        NotificationConnection(Context context, boolean play, PendingResult pending) {
++            this.context = context;
++            this.play = play;
++            this.pending = pending;
++            browser = new MediaBrowser(context, new ComponentName(context, AudioService.class), this, null);
++        }
++
++        @Override public void onConnected() {
++            try {
++                sendTransportCommand(new MediaController(context, browser.getSessionToken()), play);
++            } finally {
++                finish();
++            }
++        }
++
++        @Override public void onConnectionFailed() { finish(); }
++        @Override public void onConnectionSuspended() { finish(); }
++
++        private void finish() {
++            if (finished) return;
++            finished = true;
++            browser.disconnect();
++            pending.finish();
++        }
++    }
+ }

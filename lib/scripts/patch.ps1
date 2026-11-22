@@ -249,6 +249,20 @@ try {
 
 flutter pub get
 
+if ($platform.ToLower() -eq "android") {
+    $configFile = Get-Item "$env:GITHUB_WORKSPACE/.dart_tool/package_config.json"
+    $config = Get-Content $configFile.FullName -Raw | ConvertFrom-Json
+    $audioPackage = $config.packages | Where-Object { $_.name -eq "audio_service" }
+    $audioDir = [Uri]::new([Uri]$configFile.FullName, $audioPackage.rootUri).LocalPath
+    $audioPatch = "$env:GITHUB_WORKSPACE/lib/scripts/audio_service_android.patch"
+    # The git dependency is cached. A previous build may have applied this patch.
+    git -C $audioDir apply --reverse --check --quiet $audioPatch
+    if ($LASTEXITCODE -ne 0) {
+        git -C $audioDir apply $audioPatch
+        if ($LASTEXITCODE -ne 0) { throw "Failed to patch audio_service" }
+    }
+}
+
 $MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
     Where-Object { $_.Name -like "material_ui-*" } |
     Select-Object -Last 1
