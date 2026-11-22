@@ -204,7 +204,7 @@ abstract final class UserHttp {
   }
 
   // 移除已观看
-  static Future<LoadingState<void>> toViewDel({required String aids}) async {
+  static Future<LoadingState<void>> toViewDel({required Object aids}) async {
     final account = Accounts.main;
     final Map<String, dynamic> params = {
       'csrf': account.csrf,
@@ -220,7 +220,7 @@ abstract final class UserHttp {
     );
     if (res.data['code'] == 0) {
       // [CUSTOM] Includes bulk removal and removal after playback.
-      _recordLaterChange(account, aids, false);
+      _recordLaterChange(account, aids.toString(), false);
       SmartDialog.showToast('yeah！成功移除');
       return const Success(null);
     } else {

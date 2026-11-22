@@ -324,14 +324,14 @@ git push origin main feature/custom-enhancements
 
 ### 构建安装
 
-当前基线为上游 `1edcc4677`（2.1.6），使用 **Flutter 3.47.7 / Dart 3.13.5**。后续以 `pubspec.yaml` 为准。上游依赖修改过的框架 API，原版 SDK 不能直接编译。
+当前基线为上游 `217fb54f5`（2.2.1），使用 **Flutter 3.47.9**。后续以 `pubspec.yaml` 为准。上游依赖修改过的框架 API，原版 SDK 不能直接编译。
 
 建议使用独立 SDK 和依赖缓存，避免改动其他项目的开发环境。以下为 macOS/Linux 的 Android 构建流程，在仓库根目录执行：
 
 ```bash
-export FLUTTER_ROOT="$HOME/dev/flutter-piliplus-3.47.7"
+export FLUTTER_ROOT="$HOME/dev/flutter-piliplus-3.47.9"
 export PUB_CACHE="$HOME/dev/piliplus-pub-cache"
-git clone --depth 1 --branch 3.47.7 https://github.com/flutter/flutter.git "$FLUTTER_ROOT"
+git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git "$FLUTTER_ROOT"
 export PATH="$FLUTTER_ROOT/bin:$PATH"
 REPO_ROOT="$PWD"
 
@@ -340,16 +340,16 @@ for patch in modal_barrier text_selection mouse_cursor image_anim layout_builder
   navigation_drawer popup_menu fab null_safety_for_selectable_region \
   selectable_region editable_text text_field scroll_position scrollable \
   scrollable_gesture draggable_scrollable_sheet scaffold text text_painter \
-  sliver refresh_indicator double_tap_gesture bottom_sheet_android scroll_view navigator; do
+  sliver refresh_indicator double_tap_gesture media_query bottom_sheet_android scroll_view navigator; do
   git -C "$FLUTTER_ROOT" apply "$REPO_ROOT/lib/scripts/$patch.patch" || exit 1
 done
 flutter pub get
 
-# 2.1.6 新增 material_ui 补丁。当前 lock 固定为 1.8.0。
-MATERIAL_ROOT="$PUB_CACHE/hosted/pub.dev/material_ui-1.8.0"
+# 2.1.6 新增 material_ui 补丁。当前 lock 固定为 1.11.0。
+MATERIAL_ROOT="$PUB_CACHE/hosted/pub.dev/material_ui-1.11.0"
 for patch in modal_barrier_material navigation_drawer popup_menu fab text_field \
   scaffold refresh_indicator tabs bottom_sheet_android; do
-  git -C "$MATERIAL_ROOT" apply "$REPO_ROOT/lib/scripts/material/$patch.patch" || exit 1
+  GIT_CEILING_DIRECTORIES="$(dirname "$MATERIAL_ROOT")" git -C "$MATERIAL_ROOT" apply "$REPO_ROOT/lib/scripts/material/$patch.patch" || exit 1
 done
 
 flutter analyze --no-pub

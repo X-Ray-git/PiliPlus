@@ -9,6 +9,7 @@ import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/fav_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
+import 'package:PiliPlus/pages/article/view.dart';
 import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
 import 'package:PiliPlus/pages/fan/view.dart';
@@ -18,6 +19,7 @@ import 'package:PiliPlus/pages/live/view.dart';
 import 'package:PiliPlus/pages/rank/view.dart';
 import 'package:PiliPlus/pages/subscription_detail/view.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
+import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/desktop/window_controller.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -49,6 +51,18 @@ abstract final class PiliScheme {
     appLinks = AppLinks();
     listener?.cancel();
     listener = appLinks.uriLinkStream.listen((uri) {
+      // [CUSTOM] Older pinned favorites share their URI with ordinary folder links.
+      if (MediaControlDiagnostics.enabled &&
+          uri.scheme == 'bilibili' &&
+          uri.host == 'medialist' &&
+          uri.path.startsWith('/detail/')) {
+        MediaControlDiagnostics.record('navigation.favoriteLink', {
+          'markedShortcut':
+              uri.queryParameters['pili_entry'] == 'pinned_favorite',
+          'navigationReady': _navigationReady,
+          'wasOnVideoPage': Get.currentRoute == '/videoV',
+        });
+      }
       if (PlatformUtils.isMobile && !_navigationReady) {
         _pendingLinks.add(uri);
       } else {
@@ -82,9 +96,13 @@ abstract final class PiliScheme {
   }
 
   static int? _videoProgress(Map<String, String> queryParameters) {
-    if ((queryParameters['start_progress'] ?? queryParameters['dm_progress'])
-        case final p?) {
+    if (queryParameters['start_progress'] case final p?) {
       return int.tryParse(p);
+    } else if (queryParameters['dm_progress'] case final p?) {
+      if (int.tryParse(p) case final progress?) {
+        // 弹幕定位：与官方客户端一致，提前 3 秒
+        return progress > 3000 ? progress - 3000 : 0;
+      }
     } else if (queryParameters['t'] case final t0?) {
       if (double.tryParse(t0) case final t1?) {
         return (t1 * 1000).toInt();
@@ -150,7 +168,7 @@ abstract final class PiliScheme {
               bool isEp = path.contains('/ep/');
               PageUtils.viewPgc(
                 seasonId: isEp ? null : id,
-                epId: isEp ? id : null,
+                epId: isEp ? .parse(id) : null,
                 progress: _videoProgress(uri.queryParameters),
               );
               return true;
@@ -238,12 +256,9 @@ abstract final class PiliScheme {
             // bilibili://article/40679479?jump_opus=1&jump_opus_type=1&opus_type=article&h5awaken=random
             String? id = uriDigitRegExp.firstMatch(path)?.group(1);
             if (id != null) {
-              PageUtils.toDupNamed(
-                '/articlePage',
-                parameters: {
-                  'id': id,
-                  'type': 'read',
-                },
+              ArticlePage.toArticlePage(
+                id: id,
+                type: .read,
                 off: off,
               );
               return true;
@@ -317,12 +332,9 @@ abstract final class PiliScheme {
               caseSensitive: false,
             ).matchAsPrefix(path)?.group(1);
             if (cvid != null) {
-              PageUtils.toDupNamed(
-                '/articlePage',
-                parameters: {
-                  'id': cvid,
-                  'type': 'read',
-                },
+              ArticlePage.toArticlePage(
+                id: cvid,
+                type: .read,
                 off: off,
               );
               return true;
@@ -646,12 +658,9 @@ abstract final class PiliScheme {
       case 'note' || 'note-app':
         String? id = uri.queryParameters['cvid'];
         if (id != null) {
-          PageUtils.toDupNamed(
-            '/articlePage',
-            parameters: {
-              'id': id,
-              'type': 'read',
-            },
+          ArticlePage.toArticlePage(
+            id: id,
+            type: .read,
             off: off,
           );
           return true;
@@ -754,12 +763,9 @@ abstract final class PiliScheme {
           caseSensitive: false,
         ).firstMatch(path)?.group(1);
         if (id != null) {
-          PageUtils.toDupNamed(
-            '/articlePage',
-            parameters: {
-              'id': id,
-              'type': 'read',
-            },
+          ArticlePage.toArticlePage(
+            id: id,
+            type: .read,
             off: off,
           );
           return true;
@@ -875,14 +881,29 @@ abstract final class PiliScheme {
         }
         launchURL();
         return false;
-      case 'bubble':
+      case 'bubble' || 'tribee':
         // https://www.bilibili.com/bubble/home/1
+        // https://www.bilibili.com/tribee/home/1
         final id = uriDigitRegExp.firstMatch(path)?.group(1);
         if (id != null) {
           Get.toNamed('/bubble', arguments: {'id': id});
           return true;
         }
         launchURL();
+        return false;
+      case 'vote':
+        // www.bilibili.com/h5/vote?vote_id=***&dynamic_id=***
+        final queryParameters = uri.queryParameters;
+        final voteId = parseIntOrNull(queryParameters['vote_id']);
+        final dynamicId = queryParameters['dynamic_id'];
+        if (voteId != null) {
+          showVoteDialog(
+            Get.context!,
+            voteId,
+            dynamicId: parseIntOrNull(dynamicId),
+          );
+          return true;
+        }
         return false;
       default:
         final res = IdUtils.matchAvorBv(input: area?.split('?').first);

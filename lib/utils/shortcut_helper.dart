@@ -19,7 +19,7 @@ abstract final class ShortcutHelper {
     try {
       PiliAndroidHelper.createShortcut(
         'fav_$mediaId',
-        'bilibili://medialist/detail/$mediaId',
+        'bilibili://medialist/detail/$mediaId?pili_entry=pinned_favorite',
         title,
         customIconPath ?? '',
       );
