@@ -74,6 +74,9 @@ import 'package:window_manager/window_manager.dart';
 typedef PlayCallback = Future<void>? Function();
 typedef PlayOwner = ({String tag, Type? type});
 
+// [CUSTOM] Identify the caller that releases the shared video player.
+enum PlayerReleaseSource { videoPage, unstartedPage, liveRoom, closeAll, other }
+
 class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Player? _videoPlayerController;
   VideoController? _videoController;
@@ -698,9 +701,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   // 获取实例 传参
   static PlPlayerController getInstance({bool isLive = false}) {
     // 如果实例尚未创建，则创建一个新实例
-    return (_instance ??= PlPlayerController._())
+    final created = _instance == null;
+    final controller = (_instance ??= PlPlayerController._())
       ..isLive = isLive
       .._playerCount += 1;
+    if (created) MediaControlDiagnostics.record('video.controller.created');
+    return controller;
   }
 
   bool _processing = false;
@@ -1677,11 +1683,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   void onCloseAll() {
     _isCloseAll = true;
     if (PlatformUtils.isDesktop) exitDesktopFullScreen();
-    dispose();
+    dispose(source: PlayerReleaseSource.closeAll);
     Get.until((route) => route.isFirst);
   }
 
-  void dispose() {
+  void dispose({PlayerReleaseSource source = PlayerReleaseSource.other}) {
     // 每次减1，最后销毁
     resetScreenRotation();
     cancelLongPressTimer();
@@ -1692,6 +1698,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       return;
     }
 
+    if (MediaControlDiagnostics.enabled) {
+      MediaControlDiagnostics.record('video.controller.release', {
+        'source': source.name,
+        'playerCount': _playerCount,
+        'isCurrentController': identical(_instance, this),
+        'hadPlayer': _videoPlayerController != null,
+        'nativePlaying': _videoPlayerController?.state.playing,
+        'continueInBackground': continuePlayInBackground.value,
+      });
+    }
     _playerCount = 0;
     if (removeSafeArea) {
       showSystemBar();
@@ -1744,7 +1760,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   static void updatePlayCount() {
     if (_instance?._playerCount == 1) {
-      _instance?.dispose();
+      _instance?.dispose(source: PlayerReleaseSource.unstartedPage);
     } else {
       _instance?._playerCount -= 1;
     }
@@ -1875,6 +1891,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
+      MediaControlDiagnostics.record('video.route.popped', {'isLive': isLive});
       if (playerStatus.isPlaying) {
         pause();
       }

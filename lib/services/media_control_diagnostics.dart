@@ -16,6 +16,8 @@ class MediaControlDiagnostics with WidgetsBindingObserver {
   static bool get enabled => instance._enabled;
   bool _enabled = false;
   int _sequence = 0;
+  // Keep the last release available if routine events rotate out before a press.
+  Map<String, Object?>? _lastRelease;
   final String _session = DateTime.now().toUtc().toIso8601String();
   Future<IncidentStore>? _store;
   static final archiveStatus = ValueNotifier((
@@ -44,6 +46,7 @@ class MediaControlDiagnostics with WidgetsBindingObserver {
   static Future<void> setEnabled(bool value) async {
     await GStorage.setting.put(_settingKey, value);
     instance._watchdog.cancel();
+    instance._lastRelease = null;
     instance._enabled = value;
     if (value) record('diagnostics.enabled');
   }
@@ -65,6 +68,14 @@ class MediaControlDiagnostics with WidgetsBindingObserver {
       'lifecycle': WidgetsBinding.instance.lifecycleState?.name,
       ...data,
     };
+    if (event == 'video.controller.release') {
+      instance._lastRelease = entry;
+    } else if (event == 'video.controller.created') {
+      instance._lastRelease = null;
+    } else if (event == 'media.command.suspect' &&
+        data['reason'] == 'missing_player') {
+      entry['lastRelease'] = instance._lastRelease;
+    }
     // Keep errors contained and do not make the player await disk writes.
     instance._append(entry);
   }
@@ -146,6 +157,7 @@ class MediaControlDiagnostics with WidgetsBindingObserver {
   }
 
   static Future<void> clear() async {
+    instance._lastRelease = null;
     instance._watchdog.cancel();
     final log = await instance._log;
     await log.clear();

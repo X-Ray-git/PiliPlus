@@ -148,4 +148,25 @@ void main() {
       expect(events(await MediaControlDiagnostics.export()).first['saved'], 1);
     },
   );
+  test(
+    'a missing-player incident identifies only the latest controller lifetime',
+    () async {
+      await MediaControlDiagnostics.setEnabled(true);
+      MediaControlDiagnostics.record('video.controller.release', {
+        'source': 'videoPage',
+      });
+      MediaControlDiagnostics.record('media.command.suspect', {
+        'reason': 'missing_player',
+      });
+      MediaControlDiagnostics.record('video.controller.created');
+      MediaControlDiagnostics.record('media.command.suspect', {
+        'reason': 'missing_player',
+      });
+      final suspects = recentEvents(await MediaControlDiagnostics.export())
+          .where((e) => e['event'] == 'media.command.suspect');
+      expect(suspects.first['lastRelease']['source'], 'videoPage');
+      expect(suspects.first['lastRelease']['time'], isNotNull);
+      expect(suspects.last['lastRelease'], isNull);
+    },
+  );
 }
