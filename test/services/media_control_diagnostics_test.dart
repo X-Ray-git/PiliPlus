@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:PiliPlus/models_new/video/video_detail/page.dart';
 import 'package:PiliPlus/services/audio_handler.dart';
 import 'package:PiliPlus/services/media_control_diagnostics.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -103,6 +104,36 @@ void main() {
     expect(result[2]['hasController'], isFalse);
     handler.clear();
   });
+
+  test(
+    'headset toggle still dispatches video pause after the old page closes',
+    () async {
+      await MediaControlDiagnostics.setEnabled(true);
+      final handler = VideoPlayerServiceHandler();
+      addTearDown(handler.clear);
+      handler
+        ..onVideoDetailChange(Part(part: 'old'), 1, 'old')
+        ..onVideoDetailChange(Part(part: 'current'), 2, 'current')
+        ..onUpdateState(
+          .playing,
+          false,
+          false,
+          position: const Duration(seconds: 8),
+          speed: 1,
+        )
+        ..onVideoDetailDispose('old');
+      await handler.click();
+      final result = recentEvents(await MediaControlDiagnostics.export());
+      expect(
+        result.map((event) => event['event']),
+        contains('video.pause.dispatch'),
+      );
+      expect(
+        result.map((event) => event['event']),
+        isNot(contains('video.play.dispatch')),
+      );
+    },
+  );
 
   test(
     'disabling stops capture and clear removes queued old records',

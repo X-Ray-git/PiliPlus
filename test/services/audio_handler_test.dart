@@ -155,4 +155,61 @@ void main() {
       expect(handler.playbackState.value.playing, isTrue);
     },
   );
+
+  test('disposing a covered page leaves the playing video session intact', () {
+    handler.onVideoDetailChange(Part(part: 'current'), 2, 'current');
+    update(.playing);
+    final published = handler.playbackState.value;
+    handler.onVideoDetailDispose('test');
+    expect(handler.mediaItem.value?.title, 'current');
+    expect(handler.playbackState.value, same(published));
+    handler.onVideoDetailDispose('page-without-metadata');
+    expect(handler.playbackState.value, same(published));
+  });
+
+  test(
+    'a shorter page tag cannot remove another video with the same suffix',
+    () {
+      handler
+        ..onVideoDetailChange(Part(part: 'one'), 3, '123')
+        ..onVideoDetailChange(Part(part: 'two'), 4, '9123');
+      update(.playing);
+      handler.onVideoDetailDispose('123');
+      expect(handler.mediaItem.value?.title, 'two');
+      expect(handler.playbackState.value.playing, isTrue);
+    },
+  );
+
+  test('the restored paused video advertises play on its notification', () {
+    handler.onVideoDetailChange(Part(part: 'next'), 2, 'next');
+    update(.playing);
+    handler.onVideoDetailDispose('next');
+    final state = handler.playbackState.value;
+    expect(handler.mediaItem.value?.title, 'test');
+    expect(state.playing, isFalse);
+    expect(state.controls.map((e) => e.action), [
+      MediaAction.rewind,
+      MediaAction.play,
+      MediaAction.fastForward,
+    ]);
+  });
+
+  test('restoring a video uses its own playback position and speed', () {
+    handler
+      ..onUpdateState(
+        .paused,
+        false,
+        false,
+        position: const Duration(seconds: 3),
+        speed: 1.5,
+      )
+      ..onVideoDetailChange(Part(part: 'next'), 2, 'next');
+    update(.playing, seconds: 20);
+    handler.onVideoDetailDispose('next');
+    expect(
+      handler.playbackState.value.updatePosition,
+      const Duration(seconds: 3),
+    );
+    expect(handler.playbackState.value.speed, 1.5);
+  });
 }

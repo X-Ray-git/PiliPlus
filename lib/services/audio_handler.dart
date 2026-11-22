@@ -65,6 +65,14 @@ typedef _StatusConfig = (
   double speed,
 );
 
+class _PageMedia {
+  _PageMedia(this.item);
+
+  final MediaItem item;
+  Duration position = Duration.zero;
+  double speed = 1;
+}
+
 class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   VideoPlayerServiceHandler() {
     // Android 14 dispatches volume keys from the activity straight to the
@@ -85,7 +93,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  static final List<MediaItem> _item = [];
+  // [CUSTOM] In publication order, with only the latest item for each open page.
+  final _itemsByPage = <String, _PageMedia>{};
   bool enableBackgroundPlay = Pref.enableBackgroundPlay;
 
   bool Function()? isPlaying;
@@ -274,7 +283,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     required double speed,
     String? debugLabel,
   }) {
-    if (!enableBackgroundPlay || _item.isEmpty) {
+    if (!enableBackgroundPlay || _itemsByPage.isEmpty) {
       return;
     }
 
@@ -464,7 +473,15 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       default:
         return;
     }
-    _item.add(mediaItem);
+    if (_itemsByPage.isNotEmpty && _lastConfig != null) {
+      final state = playbackState.value;
+      _itemsByPage.values.last
+        ..position = state.position
+        ..speed = state.speed;
+    }
+    _itemsByPage
+      ..remove(herotag)
+      ..[herotag] = _PageMedia(mediaItem);
     setMediaItem(mediaItem);
     _syncPlaybackStateFromPlayer();
   }
@@ -472,20 +489,27 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   void onVideoDetailDispose(String herotag) {
     if (!enableBackgroundPlay) return;
 
-    if (_item.isNotEmpty) {
-      _item.removeWhere((item) => item.id.endsWith(herotag));
+    final removed = _itemsByPage.remove(herotag);
+    if (removed == null ||
+        !identical(removed.item, mediaItem.value) ||
+        _itemsByPage.isEmpty) {
+      return;
     }
-    if (_item.isNotEmpty) {
-      setMediaItem(_item.last);
-      playbackState.add(
-        playbackState.value.copyWith(processingState: .ready, playing: false),
-      );
-    }
+
+    final restored = _itemsByPage.values.last;
+    setMediaItem(restored.item);
+    onUpdateState(
+      .paused,
+      false,
+      restored.item.isLive ?? false,
+      position: restored.position,
+      speed: restored.speed,
+    );
   }
 
   void clearIfNeeded() {
     if (!enableBackgroundPlay) return;
-    if (_item.isEmpty) clear();
+    if (_itemsByPage.isEmpty) clear();
   }
 
   void clear() {
@@ -493,7 +517,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     MediaControlDiagnostics.cancelCommandCheck();
     if (!enableBackgroundPlay) return;
     mediaItem.add(null);
-    _item.clear();
+    _itemsByPage.clear();
     _lastPos = null;
     _lastConfig = null;
     /**
