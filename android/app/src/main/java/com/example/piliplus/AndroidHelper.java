@@ -247,11 +247,15 @@ public final class AndroidHelper {
                 Icon shortcutIcon = bitmap == null
                         ? Icon.createWithResource(context, R.mipmap.ic_launcher)
                         : Icon.createWithAdaptiveBitmap(bitmap);
+                Intent launchIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(context.getPackageName());
+                if (id.startsWith("fav_")) {
+                    launchIntent.setClass(context, FavoriteShortcutActivity.class);
+                }
                 ShortcutInfo shortcut = new ShortcutInfo.Builder(context, id)
                         .setShortLabel(label)
                         .setIcon(shortcutIcon)
                         // [CUSTOM] Keep shortcuts inside this application.
-                        .setIntent(new Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(context.getPackageName()))
+                        .setIntent(launchIntent)
                         .build();
                 // TODO: WorkerThread
                 Intent pinIntent = shortcutManager.createShortcutResultIntent(shortcut);

@@ -22,6 +22,13 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            FavoriteShortcutActivity.migratePinnedFavorites(applicationContext)
+        }
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         AndroidHelper.ToDart.onUserLeaveHint?.run()
